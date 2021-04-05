@@ -35,7 +35,8 @@ from astropy.stats import LombScargle
 
 theano.config.gcc.cxxflags = "-Wno-c++11-narrowing"
 
-np.random.seed(42)
+#np.random.seed(42)
+np.random.seed()
 
 from scipy.interpolate import splrep, splev
 
@@ -43,11 +44,7 @@ import lightkurve as lk
 
 from scipy import optimize
 
-
-
-
-
-
+import sys, os
 
 
 
@@ -531,6 +528,16 @@ if make_plots == True:
 
 # ------------------  TEST METHODS ON SYNTHETIC FLARES --------------------- #
 
+
+
+
+
+
+
+cadence = 1.*(1./1440.) # 2 minutes converted to days
+stddev = 0.001 * (1. / 50)
+
+
 def create_synthetic(cadence, stddev, set_cadence, given_amplitude=1000, given_fwhm=0.001,  fixed_amplitude=False, fixed_fwhm=False, ask_input=False):
     print('\nGenerating Synthetic Flares...\n')
     shrink_value = 1./50
@@ -575,7 +582,7 @@ def create_synthetic(cadence, stddev, set_cadence, given_amplitude=1000, given_f
         y_synth_noscatter += flare_synth_a_noscatter
         y_synth += flare_synth_a
 
-        flare_window.append([t_max[a] - 0.05, t_max[a] + 0.2])
+        flare_window.append([t_max[a] - 0.05, t_max[a] + 0.4]) #0.2
 
         # where_flare = np.where(flare_synth_a_noscatter > 0.005)[0]
         #
@@ -595,8 +602,85 @@ def create_synthetic(cadence, stddev, set_cadence, given_amplitude=1000, given_f
                   "fwhm":fwhm,
                   }
     return x_synth, y_synth, y_synth_noscatter, flare_window, flare_properties
-stddev = 0.001
-cadence = 1.*(1./1440.) # 2 minutes converted to days
+def create_single_synthetic(cadence, set_cadence):
+    np.random.seed()
+
+    # print('\nGenerating Synthetic Flares...\n')
+    std = 0.001 * (1. / 50)
+
+    x_synth = np.arange(0, 3, cadence)  # cadence in days
+
+    t_max = 0.5
+    t_max = t_max + np.random.uniform(-0.05, 0.05, 1)
+    fwhm = np.random.uniform(0.5, set_cadence, 1) * (1. / 60.) * (1. / 24.)  # days
+    amplitude = np.random.uniform(0.01,1.0,1)
+    # amplitude = np.random.uniform(3, 1000, 1) * stddev
+
+    y_synth = np.random.normal(0, std, len(x_synth))
+    y_synth_noscatter = np.zeros_like(x_synth)
+
+    flare_synth_a_noscatter = aflare1(x_synth, t_max, fwhm, amplitude)
+    flare_synth_a = flare_synth_a_noscatter + np.random.normal(0, std, len(x_synth))
+
+    y_synth_noscatter += flare_synth_a_noscatter
+    y_synth += flare_synth_a
+
+    # y_synth = aflare1(x_synth, t_max, fwhm, amplitude)
+
+    # where_start = np.where(y_synth > 0)[0][0]
+    # where_end = np.where(y_synth > 0.0025)[0][-1]
+    #
+    # plt.title('Rise Time = ' + str(np.round((t_max_in - x_synth[where_start])*60*24,2))+' min\nFall Time = ' + str(np.round((x_synth[where_end] - t_max_in)*60*24,2))+' min')
+    # plt.plot([t_max_in,t_max_in], [0,np.max(y_synth*1.1)], c='grey', lw=0.6)
+    # plt.plot([0, 2], [0, 0], c='grey', lw=0.6)
+    # plt.plot([x_synth[where_start], x_synth[where_start]], [0, np.max(y_synth * 1.2)], c='green', lw=0.6)
+    # plt.plot([x_synth[where_end], x_synth[where_end]], [0, np.max(y_synth * 1.2)], c='red', lw=0.6)
+    # plt.plot(x_synth, y_synth, c='black', label='fwhm = ' + str(np.round(fwhm_in * 60 * 24, 1)) + ' min')
+    # #plt.xlim(x_synth[where_start]-0.05,x_synth[where_end]+0.05)
+    # plt.xlim(0.1,0.5)
+    # plt.ylim(-0.05,np.max(y_synth*1.1))
+    # plt.xlabel('Time (days)')
+    # plt.legend(loc='upper right')
+    # plt.savefig( '/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/_synthetic_flare_' + str(a) + '.pdf')
+    # plt.close()
+    # plt.show()
+
+    #import pdb; pdb.set_trace()
+
+    flare_properties = {"tpeak": t_max,
+                        "amplitude": amplitude,
+                        "fwhm": fwhm,
+                        }
+    return x_synth, y_synth, y_synth_noscatter, flare_properties
+
+def plot_single_synthetic(fwhm_in = 80):
+
+    x_synth = np.linspace(0,2.0,200000)
+    t_max_in = 0.25
+    fwhm_in = fwhm_in*(1./60.)*(1./24.) #minutes to days
+    amplitude_in = 1
+    y_synth = aflare1(x_synth, t_max_in, fwhm_in, amplitude_in)
+
+    where_start = np.where(y_synth > 0)[0][0]
+    where_end = np.where(y_synth > 0.0025)[0][-1]
+
+    plt.title('Rise Time = ' + str(np.round((t_max_in - x_synth[where_start])*60*24,2))+' min\nFall Time = ' + str(np.round((x_synth[where_end] - t_max_in)*60*24,2))+' min')
+    plt.plot([t_max_in,t_max_in], [0,np.max(y_synth*1.1)], c='grey', lw=0.6)
+    plt.plot([0, 2], [0, 0], c='grey', lw=0.6)
+    plt.plot([x_synth[where_start], x_synth[where_start]], [0, np.max(y_synth * 1.2)], c='green', lw=0.6)
+    plt.plot([x_synth[where_end], x_synth[where_end]], [0, np.max(y_synth * 1.2)], c='red', lw=0.6)
+    plt.plot(x_synth, y_synth, c='black', label='fwhm = ' + str(np.round(fwhm_in * 60 * 24, 1)) + ' min')
+    #plt.xlim(x_synth[where_start]-0.05,x_synth[where_end]+0.05)
+    plt.xlim(0.1,0.5)
+    plt.ylim(-0.05,np.max(y_synth*1.1))
+    plt.xlabel('Time (days)')
+    plt.legend(loc='upper right')
+    # plt.savefig( '/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/_synthetic_flare_' + str(a) + '.pdf')
+    # plt.close()
+    plt.show()
+
+    #import pdb; pdb.set_trace()
+#create_single_synthetic()
 
 #x_synth, y_synth, y_synth_noscatter, flare_window, flare_properties = create_synthetic(cadence, stddev)
 
@@ -705,244 +789,41 @@ cadence = 1.*(1./1440.) # 2 minutes converted to days
 #
 #     return x_cauchy,y_cauchy,pars,pars[1]
 
-def plot_stat_hist(t_peak_opt,fwhm_opt,ampl_opt,fwhm_true,ampl_true,save_as):
-    font_size = 'medium'
-    nbins = 100
+def plot_test_fit(x_flare,y_flare,x_fit,y_fit,y_true,flare_id_time,flare_id_flux,eq_dur,flare_energy,eq_dur_true,flare_energy_true,save_as):
+    font_size = 'large'
     t_peak_color = '#006699'
     fwhm_color = '#990033'
     ampl_color = '#669900'
-    x_factor = 20.
 
-    dat1 = np.array(t_peak_opt)*24*60
-    dat2 = np.array(fwhm_opt)*24*60
-    dat3 = ampl_opt
+    max_amp = np.max([np.max(y_true), np.max(y_flare), np.max(y_fit)]) - 1.0
+    max_gap = 0.05 * max_amp
 
-    fig = plt.figure(1, figsize=(14, 4), facecolor="#ffffff")  # , dpi=300)
-    ax1 = fig.add_subplot(131)
-    #ax1.hist(dat1, color=t_peak_color, bins=nbins, edgecolor='#000000', linewidth=1.2)
-    hist_dat1 = ax1.hist(dat1, color=t_peak_color, bins=nbins, weights=np.ones(len(dat1))/len(dat1)) #, edgecolor='#000000', linewidth=1.2)
-    ax1.hist(dat1, color='#000000', bins=nbins, linewidth=1.2, histtype='step', weights=np.ones(len(dat1))/len(dat1))
+    #import pdb; pdb.set_trace()
 
-    x_gauss1,y_gauss1, sigma1 = gauss_fit(dat1,hist_dat1,x_factor)
-    #ax1.plot(x_gauss1, y_gauss1, color='orange', lw=1.5)
-
-    mult_fact1 = np.max(hist_dat1[0])*0.1
-    x_cauchy1,y_cauchy1,cauchy_pars1,sigma1 = cauchy_fit(dat1,hist_dat1,x_factor)
-    #ax1.plot(x_cauchy1, y_cauchy1*mult_fact1 , color='orange', lw=1.5)
-
-    ax1.plot([0,0],[0,np.max(hist_dat1[0])*10], '--',  color='#000000', lw=1) #, label="Rotation Model")
-    #ax1.set_xlim(np.min(hist_dat1[1]), np.max(hist_dat1[1]))
-    ax1.set_xlim(-10, 10)
-    ax1.set_ylim([0, np.max(hist_dat1[0]) * 1.15])
-    #plt.legend(fontsize=10, loc="upper left")
-    ax1.set_xlabel("Difference From True Peak Time (min)", fontsize=font_size, style='normal', family='sans-serif')
-    ax1.set_ylabel("Fraction of Total", fontsize=font_size, style='normal', family='sans-serif')
-    ax1.set_title("Peak Time ", fontsize=font_size, style='normal', family='sans-serif')
+    fig = plt.figure(1, figsize=(7,5.5), facecolor="#ffffff")  # , dpi=300)
+    ax1 = fig.add_subplot(111)
+    #ax1.set_xlim([0, 1])
+    ax1.set_xlabel("Time (days)", fontsize=font_size, style='normal', family='sans-serif')
+    ax1.set_ylabel("Flux (ppt)", fontsize=font_size, style='normal', family='sans-serif')
+    ax1.set_title(r'Equivalent Duration = ' + str(np.round(eq_dur, 2)) + ' (sec) Flare Energy = ' + str('{:0.3e}'.format(flare_energy)) + 'erg s$^{-1}$\nTrue Equivalent Duration = ' + str(np.round(eq_dur_true, 2)) + ' (sec) True Flare Energy = ' + str('{:0.3e}'.format(flare_energy_true)) + 'erg s$^{-1}$', pad=10, fontsize=font_size, style='normal', family='sans-serif')
     ax1.tick_params(axis='both', direction='in', labelsize=font_size, top=True, right=False)
-
-    ax2 = fig.add_subplot(132)
-    #ax2.hist(dat2, color=fwhm_color, bins=nbins, edgecolor='#000000', linewidth=1.2)
-    hist_dat2 = ax2.hist(dat2, color=fwhm_color, bins=nbins*6, weights=np.ones(len(dat2))/len(dat2)) #, edgecolor='#000000', linewidth=1.2)
-    ax2.hist(dat2, color='#000000', bins=nbins*6, linewidth=1.2, histtype='step', weights=np.ones(len(dat2))/len(dat2))
-
-    x_gauss2, y_gauss2, sigma2 = gauss_fit(dat2,hist_dat2, x_factor)
-    #ax2.plot(x_gauss2, y_gauss2, color='orange', lw=1.5)
-
-    mult_fact2 = np.max(hist_dat2[0]) * 0.1
-    x_cauchy2, y_cauchy2,cauchy_pars2,sigma2 = cauchy_fit(dat2,hist_dat2,x_factor)
-    #ax2.plot(x_cauchy2, y_cauchy2*mult_fact2, color='orange', lw=1.5)
-
-    ax2.plot([0, 0], [0, np.max(hist_dat2[0]) * 10], '--', color='#000000', lw=1)
-    # plt.plot([0,0],[0,] rot_model, color="C1", lw=1, label="Rotation Model")
-    #ax2.set_xlim(np.min(hist_dat2[1]), np.max(hist_dat2[1]))
-    ax2.set_xlim(-x_factor * sigma2, x_factor * sigma2)
-    ax2.set_ylim([0, np.max(hist_dat2[0]) * 1.15])
-    #plt.legend(fontsize=10, loc="upper left")
-    ax2.set_xlabel("% Difference From True FWHM", fontsize=font_size, style='normal', family='sans-serif')
-    #ax2.set_ylabel("Counts", fontsize=font_size, style='normal', family='sans-serif')
-    ax2.set_title("True FWHM: " + str(np.round(fwhm_true[0]*24*60,3)), fontsize=font_size, style='normal', family='sans-serif')
-    ax2.tick_params(axis='both', direction='in', labelsize=font_size, top=True, right=False)
-
-    ax3 = fig.add_subplot(133)
-    #ax3.hist(dat3, color=ampl_color, bins=nbins, edgecolor='#000000', linewidth=1.2)
-    hist_dat3 = ax3.hist(dat3, color=ampl_color, bins=nbins*4, weights=np.ones(len(dat3))/len(dat3)) #, edgecolor='#000000', linewidth=1.2)
-    ax3.hist(dat3, color='#000000', bins=nbins*4, linewidth=1.2, histtype='step', weights=np.ones(len(dat3))/len(dat3))
-
-    x_gauss3, y_gauss3, sigma3 = gauss_fit(dat3,hist_dat3, x_factor)
-    #ax3.plot(x_gauss3, y_gauss3, color='orange', lw=1.5)
-
-    mult_fact3 = np.max(hist_dat3[0]) * 0.1
-    x_cauchy3, y_cauchy3,cauchy_pars3,sigma3 = cauchy_fit(dat3,hist_dat3,x_factor)
-    #ax3.plot(x_cauchy3, y_cauchy3*mult_fact3, color='orange', lw=1.5)
-
-    ax3.plot([0, 0], [0, np.max(hist_dat3[0]) * 10], '--', color='#000000', lw=1)
-    # plt.plot([0,0],[0,] rot_model, color="C1", lw=1, label="Rotation Model")
-    #ax3.set_xlim(np.min(hist_dat3[1]), np.max(hist_dat3[1]))
-    ax3.set_xlim(-x_factor*2*sigma3, x_factor*2*sigma3)
-    ax3.set_ylim([0, np.max(hist_dat3[0]) * 1.15])
-    # plt.legend(fontsize=10, loc="upper left")
-    ax3.set_xlabel("% Difference From True Amplitude", fontsize=font_size, style='normal', family='sans-serif')
-    #ax3.set_ylabel("Counts", fontsize=font_size, style='normal', family='sans-serif')
-    ax3.set_title("True Amplitude: " + str(np.round(ampl_true[0],3)), fontsize=font_size, style='normal', family='sans-serif')
-    ax3.tick_params(axis='both', direction='in', labelsize=font_size, top=True, right=False)
+    ax1.plot(x_fit, y_true, c='#000000', lw=0.5, label='True Flare')
+    ax1.plot(x_fit, y_fit, c='blue', lw=2, label='Flare Fit')
+    if len(flare_id_time) > 0:
+        where_under = np.where((x_fit >= np.min(flare_id_time)) & (x_fit <= np.max(flare_id_time)))[0]
+        ax1.fill_between(x_fit[where_under], y_fit[where_under], y2=np.zeros_like(y_fit[where_under]), color='blue', alpha=0.25)
+    else:
+        ax1.fill_between(x_fit, y_fit, y2=np.zeros_like(y_fit), color='#006699', alpha=0.15)
+    ax1.scatter(x_flare, y_flare, c='red', label='Test Flare')
+    ax1.scatter(flare_id_time, flare_id_flux, c='#00cc00', label='Identified Flare')
+    ax1.set_ylim([1.0 - max_gap, 1 + max_amp + max_gap])
+    ax1.legend(fontsize=font_size, loc='upper right')
     plt.tight_layout()
     plt.savefig('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/' + save_as, dpi=300)
     plt.close()
     #plt.show()
-    #import pdb;pdb.set_trace()
-def plot_stat_hist2(t_peak_opt,fwhm_opt,ampl_opt,eq_duration_opt,flare_energy_opt,impulsiveness,if_downsample,save_as):
-    font_size = 'medium'
-    nbins = 100
-    t_peak_color = '#006699'
-    fwhm_color = '#990033'
-    ampl_color = '#669900'
-    eqdur_color = '#cc6600'
-    energy_color = '#666699'
-    impulsiveness_color = '#669999'
-    x_factor = 20.
-
-    dat1 = np.array(t_peak_opt)*24*60
-    dat2 = np.array(fwhm_opt)*24*60
-    dat3 = ampl_opt
-    dat4 = eq_duration_opt
-    dat5 = flare_energy_opt
-    dat6 = impulsiveness
-
-    fig = plt.figure(1, figsize=(15, 4*2.2), facecolor="#ffffff")  # , dpi=300)
-    ax1 = fig.add_subplot(231)
-    #ax1.hist(dat1, color=t_peak_color, bins=nbins, edgecolor='#000000', linewidth=1.2)
-    hist_dat1 = ax1.hist(dat1, color=t_peak_color, bins=nbins, weights=np.ones(len(dat1))/len(dat1)) #, edgecolor='#000000', linewidth=1.2)
-    ax1.hist(dat1, color='#000000', bins=nbins, linewidth=1.2, histtype='step', weights=np.ones(len(dat1))/len(dat1))
-
-    x_gauss1,y_gauss1, sigma1 = gauss_fit(dat1,hist_dat1,x_factor)
-    #ax1.plot(x_gauss1, y_gauss1, color='orange', lw=1.5)
-
-    x_cauchy1,y_cauchy1,cauchy_pars1,sigma1 = cauchy_fit(dat1,hist_dat1,x_factor)
-    #ax1.plot(x_cauchy1, y_cauchy1*mult_fact1 , color='orange', lw=1.5)
-
-    ax1.plot([0,0],[0,np.max(hist_dat1[0])*10], '--',  color='#000000', lw=1) #, label="Rotation Model")
-    #ax1.set_xlim(np.min(hist_dat1[1]), np.max(hist_dat1[1]))
-    if if_downsample == True:
-        ax1.set_xlim(-10, 10)
-    if if_downsample == False:
-        ax1.set_xlim(-0.25, 0.25)
-    ax1.set_ylim([0, np.max(hist_dat1[0]) * 1.15])
-    #plt.legend(fontsize=10, loc="upper left")
-    ax1.set_xlabel("Difference From True Peak Time (min)", fontsize=font_size, style='normal', family='sans-serif')
-    ax1.set_ylabel("Fraction of Total", fontsize=font_size, style='normal', family='sans-serif')
-    ax1.set_title("Peak Time ", fontsize=font_size, style='normal', family='sans-serif')
-    ax1.tick_params(axis='both', direction='in', labelsize=font_size, top=True, right=False)
 
 
-    ax2 = fig.add_subplot(232)
-    #ax2.hist(dat2, color=fwhm_color, bins=nbins, edgecolor='#000000', linewidth=1.2)
-    hist_dat2 = ax2.hist(dat2, color=fwhm_color, bins=nbins*6, weights=np.ones(len(dat2))/len(dat2)) #, edgecolor='#000000', linewidth=1.2)
-    ax2.hist(dat2, color='#000000', bins=nbins*6, linewidth=1.2, histtype='step', weights=np.ones(len(dat2))/len(dat2))
-
-    x_gauss2, y_gauss2, sigma2 = gauss_fit(dat2,hist_dat2, x_factor)
-    #ax2.plot(x_gauss2, y_gauss2, color='orange', lw=1.5)
-
-    mult_fact2 = np.max(hist_dat2[0]) * 0.1
-    x_cauchy2, y_cauchy2,cauchy_pars2,sigma2 = cauchy_fit(dat2,hist_dat2,x_factor)
-    #ax2.plot(x_cauchy2, y_cauchy2*mult_fact2, color='orange', lw=1.5)
-
-    ax2.plot([0, 0], [0, np.max(hist_dat2[0]) * 10], '--', color='#000000', lw=1)
-    # plt.plot([0,0],[0,] rot_model, color="C1", lw=1, label="Rotation Model")
-    #ax2.set_xlim(np.min(hist_dat2[1]), np.max(hist_dat2[1]))
-    ax2.set_xlim(-x_factor * sigma2, x_factor * sigma2)
-    ax2.set_ylim([0, np.max(hist_dat2[0]) * 1.15])
-    #plt.legend(fontsize=10, loc="upper left")
-    ax2.set_xlabel("% Difference From True FWHM", fontsize=font_size, style='normal', family='sans-serif')
-    #ax2.set_ylabel("Counts", fontsize=font_size, style='normal', family='sans-serif')
-    ax2.set_title("FWHM", fontsize=font_size, style='normal', family='sans-serif')
-    ax2.tick_params(axis='both', direction='in', labelsize=font_size, top=True, right=False)
-
-
-    ax3 = fig.add_subplot(233)
-    #ax3.hist(dat3, color=ampl_color, bins=nbins, edgecolor='#000000', linewidth=1.2)
-    if if_downsample == True:
-        hist_dat3 = ax3.hist(dat3, color=ampl_color, bins=nbins*4, weights=np.ones(len(dat3))/len(dat3)) #, edgecolor='#000000', linewidth=1.2)
-        ax3.hist(dat3, color='#000000', bins=nbins*4, linewidth=1.2, histtype='step', weights=np.ones(len(dat3))/len(dat3))
-    if if_downsample == False:
-        hist_dat3 = ax3.hist(dat3, color=ampl_color, bins=nbins * 20, weights=np.ones(len(dat3)) / len(dat3))  # , edgecolor='#000000', linewidth=1.2)
-        ax3.hist(dat3, color='#000000', bins=nbins * 20, linewidth=1.2, histtype='step', weights=np.ones(len(dat3)) / len(dat3))
-
-    x_gauss3, y_gauss3, sigma3 = gauss_fit(dat3,hist_dat3, x_factor)
-    #ax3.plot(x_gauss3, y_gauss3, color='orange', lw=1.5)
-
-    mult_fact3 = np.max(hist_dat3[0]) * 0.1
-    x_cauchy3, y_cauchy3,cauchy_pars3,sigma3 = cauchy_fit(dat3,hist_dat3,x_factor)
-    #ax3.plot(x_cauchy3, y_cauchy3*mult_fact3, color='orange', lw=1.5)
-
-    ax3.plot([0, 0], [0, np.max(hist_dat3[0]) * 10], '--', color='#000000', lw=1)
-    # plt.plot([0,0],[0,] rot_model, color="C1", lw=1, label="Rotation Model")
-    #ax3.set_xlim(np.min(hist_dat3[1]), np.max(hist_dat3[1]))
-    ax3.set_xlim(-x_factor*2*sigma3, x_factor*2*sigma3)
-    ax3.set_ylim([0, np.max(hist_dat3[0]) * 1.15])
-    # plt.legend(fontsize=10, loc="upper left")
-    ax3.set_xlabel("% Difference From True Amplitude", fontsize=font_size, style='normal', family='sans-serif')
-    #ax3.set_ylabel("Counts", fontsize=font_size, style='normal', family='sans-serif')
-    ax3.set_title("Amplitude", fontsize=font_size, style='normal', family='sans-serif')
-    ax3.tick_params(axis='both', direction='in', labelsize=font_size, top=True, right=False)
-
-
-    ax4 = fig.add_subplot(234)
-    if if_downsample == True:
-        hist_dat4 = ax4.hist(dat4, color=eqdur_color, bins=nbins, weights=np.ones(len(dat4)) / len(dat4))  # , edgecolor='#000000', linewidth=1.2)
-        ax4.hist(dat4, color='#000000', bins=nbins, linewidth=1.2, histtype='step', weights=np.ones(len(dat4)) / len(dat4))
-    if if_downsample == False:
-        hist_dat4 = ax4.hist(dat4, color=eqdur_color, bins=nbins*4, weights=np.ones(len(dat4)) / len(dat4))  # , edgecolor='#000000', linewidth=1.2)
-        ax4.hist(dat4, color='#000000', bins=nbins*4, linewidth=1.2, histtype='step', weights=np.ones(len(dat4)) / len(dat4))
-
-    x_cauchy4, y_cauchy4, cauchy_pars4, sigma4 = cauchy_fit(dat4, hist_dat4, x_factor)
-
-    ax4.plot([0, 0], [0, np.max(hist_dat4[0]) * 10], '--', color='#000000', lw=1)
-    ax4.set_xlim(-x_factor * sigma4, x_factor * sigma4)
-    ax4.set_ylim([0, np.max(hist_dat4[0]) * 1.15])
-    # plt.legend(fontsize=10, loc="upper left")
-    ax4.set_xlabel("% Difference From True Equivalent Duration", fontsize=font_size, style='normal', family='sans-serif')
-    ax4.set_ylabel("Fraction of Total", fontsize=font_size, style='normal', family='sans-serif')
-    ax4.set_title("Equivalent Duration", fontsize=font_size, style='normal',family='sans-serif')
-    ax4.tick_params(axis='both', direction='in', labelsize=font_size, top=True, right=False)
-
-
-    ax5 = fig.add_subplot(235)
-    if if_downsample == True:
-        hist_dat5 = ax5.hist(dat5, color=energy_color, bins=nbins, weights=np.ones(len(dat5)) / len(dat5))  # , edgecolor='#000000', linewidth=1.2)
-        ax5.hist(dat5, color='#000000', bins=nbins, linewidth=1.2, histtype='step', weights=np.ones(len(dat5)) / len(dat5))
-    if if_downsample == False:
-        hist_dat5 = ax5.hist(dat5, color=energy_color, bins=nbins*4, weights=np.ones(len(dat5)) / len(dat5))  # , edgecolor='#000000', linewidth=1.2)
-        ax5.hist(dat5, color='#000000', bins=nbins*4, linewidth=1.2, histtype='step', weights=np.ones(len(dat5)) / len(dat5))
-    x_cauchy5, y_cauchy5, cauchy_pars5, sigma5 = cauchy_fit(dat5, hist_dat5, x_factor)
-    ax5.plot([0, 0], [0, np.max(hist_dat5[0]) * 10], '--', color='#000000', lw=1)
-    ax5.set_xlim(-x_factor/2. * sigma5, x_factor/2. * sigma5)
-    ax5.set_ylim([0, np.max(hist_dat5[0]) * 1.15])
-    # plt.legend(fontsize=10, loc="upper left")
-    ax5.set_xlabel("% Difference From True Flare Energy", fontsize=font_size, style='normal',family='sans-serif')
-    # ax3.set_ylabel("Counts", fontsize=font_size, style='normal', family='sans-serif')
-    ax5.set_title("Flare Energy", fontsize=font_size, style='normal', family='sans-serif')
-    ax5.tick_params(axis='both', direction='in', labelsize=font_size, top=True, right=False)
-
-
-    ax6 = fig.add_subplot(236)
-    hist_dat6 = ax6.hist(dat6, color=impulsiveness_color, bins=nbins, weights=np.ones(len(dat6)) / len(dat6))  # , edgecolor='#000000', linewidth=1.2)
-    ax6.hist(dat6, color='#000000', bins=nbins, linewidth=1.2, histtype='step', weights=np.ones(len(dat6)) / len(dat6))
-    ax6.plot([0, 0], [0, np.max(hist_dat6[0]) * 10], '--', color='#000000', lw=1)
-    #ax6.set_xlim(-x_factor / 2. * sigma6, x_factor / 2. * sigma6)
-    ax6.set_ylim([0, np.max(hist_dat6[0]) * 1.15])
-    # plt.legend(fontsize=10, loc="upper left")
-    ax6.set_xlabel("Distribution of Impulsiveness Index of Flares Tested", fontsize=font_size, style='normal', family='sans-serif')
-    # ax3.set_ylabel("Counts", fontsize=font_size, style='normal', family='sans-serif')
-    ax6.set_title("Impulsive Index", fontsize=font_size, style='normal', family='sans-serif')
-    ax6.tick_params(axis='both', direction='in', labelsize=font_size, top=True, right=False)
-
-
-
-    plt.tight_layout()
-    plt.savefig('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/' + save_as, dpi=300)
-    plt.close()
-    #plt.show()
-    #import pdb;pdb.set_trace()
 def plot_stat_hist3(t_peak_opt,fwhm_opt,ampl_opt,eq_duration_opt,flare_energy_opt,impulsiveness, save_as):
 
     print('Plotting Simple Histograms...')
@@ -1093,7 +974,7 @@ def plot_stat_hist3(t_peak_opt,fwhm_opt,ampl_opt,eq_duration_opt,flare_energy_op
     plt.close()
     #plt.show()
     #import pdb;pdb.set_trace()
-def plot_stat_hist4(t_peak_opt,fwhm_opt,ampl_opt,eq_duration_opt,flare_energy_opt,impulsiveness, save_as):
+def plot_stat_hist4(t_peak_opt,fwhm_opt,ampl_opt,eq_duration_opt,flare_energy_opt,impulsiveness, bin_slice_factor, save_as):
 
     print('Plotting Simple Histograms...')
 
@@ -1105,8 +986,7 @@ def plot_stat_hist4(t_peak_opt,fwhm_opt,ampl_opt,eq_duration_opt,flare_energy_op
     eqdur_color = '#cc6600'
     energy_color = '#666699'
     impulsiveness_color = '#669999'
-    x_factor = 20.
-    bin_slice_factor = 3.
+    x_factor = 15. * bin_slice_factor
 
     impulse_max_lim_factor = 0.50
 
@@ -1290,9 +1170,10 @@ def plot_stat_hist4(t_peak_opt,fwhm_opt,ampl_opt,eq_duration_opt,flare_energy_op
     #plt.show()
     #import pdb;pdb.set_trace()
 
+
 def plot_hist_cant_fit(t_peak_cant_fit,fwhm_cant_fit,ampl_cant_fit,impulsiveness_cant_fit, save_as):
 
-    print('Plotting Simple Histograms...')
+    print("Plotting Can't Fit Histograms...")
 
     font_size = 'medium'
     nbins = 'auto'
@@ -1336,7 +1217,7 @@ def plot_hist_cant_fit(t_peak_cant_fit,fwhm_cant_fit,ampl_cant_fit,impulsiveness
     # ax1.set_xlim(-x_factor*bin_width,x_factor*bin_width)
     ax1.set_ylim([0, np.max(hist_dat1[0]) * 1.10])
     #plt.legend(fontsize=10, loc="upper left")
-    ax1.set_xlabel("Fractional Location of Peak Time in Window", fontsize=font_size, style='normal', family='sans-serif')
+    ax1.set_xlabel("Fractional Location of Peak Time Between Points", fontsize=font_size, style='normal', family='sans-serif')
     ax1.set_ylabel("Counts", fontsize=font_size, style='normal', family='sans-serif')
     ax1.set_title("Peak Time", fontsize=font_size, style='normal', family='sans-serif')
     ax1.tick_params(axis='both', direction='in', labelsize=font_size, top=True, right=False)
@@ -1366,7 +1247,7 @@ def plot_hist_cant_fit(t_peak_cant_fit,fwhm_cant_fit,ampl_cant_fit,impulsiveness
     # ax2.set_xlim(-x_factor*bin_width,x_factor*bin_width)
     ax2.set_ylim([0, np.max(hist_dat2[0]) * 1.10])
     #plt.legend(fontsize=10, loc="upper left")
-    ax2.set_xlabel("FWHM (min)", fontsize=font_size, style='normal', family='sans-serif')
+    ax2.set_xlabel("Fraction of Lightcurve Cadence", fontsize=font_size, style='normal', family='sans-serif')
     #ax2.set_ylabel("Counts", fontsize=font_size, style='normal', family='sans-serif')
     ax2.set_title("FWHM", fontsize=font_size, style='normal', family='sans-serif')
     ax2.tick_params(axis='both', direction='in', labelsize=font_size, top=True, right=False)
@@ -1436,471 +1317,424 @@ def plot_hist_cant_fit(t_peak_cant_fit,fwhm_cant_fit,ampl_cant_fit,impulsiveness
     plt.close()
     #plt.show()
     #import pdb;pdb.set_trace()
+def plot_hist_cant_find(t_peak_cant_find,fwhm_cant_find,ampl_cant_find,impulsiveness_cant_find, save_as):
 
+    print("Plotting Can't Fit Histograms...")
 
-
-def plot_stat_cum(t_peak_opt,fwhm_opt,ampl_opt,fwhm_true, ampl_true,save_as):
     font_size = 'medium'
-    nbins = 100
+    nbins = 'auto'
     t_peak_color = '#006699'
     fwhm_color = '#990033'
     ampl_color = '#669900'
+    eqdur_color = '#cc6600'
+    energy_color = '#666699'
+    impulsiveness_color = '#669999'
+    x_factor = 20.
+    bin_slice_factor = 3.
 
-    fig = plt.figure(1, figsize=(14, 4), facecolor="#ffffff")  # , dpi=300)
-    ax1 = fig.add_subplot(131)
-    dat1 = np.array(t_peak_opt)*24*60
-    #ax1.hist(dat1, color=t_peak_color, bins=nbins, edgecolor='#000000', linewidth=1.2, cumulative=True, density=True, histtype='step')
-    hist_dat1 = ax1.hist(dat1, color=t_peak_color, bins=nbins, linewidth=1.5, cumulative=True, density=True, histtype='step')
-    ax1.plot([0,0],[0,np.max(hist_dat1[0])*10], '--',  color='black', lw=1) #, label="Rotation Model")
-    ax1.set_xlim(np.min(hist_dat1[1]), np.max(hist_dat1[1]))
-    ax1.set_ylim([0, 1])
+    impulse_max_lim_factor = 0.50
+
+    dat1 = np.array(t_peak_cant_find) #*24*60
+    dat2 = np.array(fwhm_cant_find)*24*60
+    dat3 = np.array(ampl_cant_find)
+    dat4 = np.array(impulsiveness_cant_find)
+
+    fig = plt.figure(1, figsize=(15, 4), facecolor="#ffffff")  # , dpi=300)
+    ax1 = fig.add_subplot(141)
+
+    y_hist, bin_edges = np.histogram(dat1, bins='auto')
+    hist_dat1 = ax1.hist(dat1, color=t_peak_color, bins=bin_edges) #, weights=np.ones(len(dat1))/len(dat1)) #, edgecolor='#000000', linewidth=1.2)
+    ax1.hist(dat1, color='#000000', bins=bin_edges, linewidth=1.2, histtype='step') #, weights=np.ones(len(dat1))/len(dat1))
+    #ax1.plot([0,0],[0,np.max(hist_dat1[0])*10], '--',  color='#000000', lw=1) #, label="Rotation Model")
+
+    # ax1.set_xlim(-x_factor*bin_width,x_factor*bin_width)
+    ax1.set_ylim([0, np.max(hist_dat1[0]) * 1.10])
     #plt.legend(fontsize=10, loc="upper left")
-    ax1.set_xlabel("Difference From True Peak Time (min)", fontsize=font_size, style='normal', family='sans-serif')
-    ax1.set_ylabel("Cumulative Fraction", fontsize=font_size, style='normal', family='sans-serif')
-    ax1.set_title("Peak Time ", fontsize=font_size, style='normal', family='sans-serif')
+    ax1.set_xlabel("Fractional Location of Peak Time Between Points", fontsize=font_size, style='normal', family='sans-serif')
+    ax1.set_ylabel("Counts", fontsize=font_size, style='normal', family='sans-serif')
+    ax1.set_title("Peak Time", fontsize=font_size, style='normal', family='sans-serif')
     ax1.tick_params(axis='both', direction='in', labelsize=font_size, top=True, right=False)
 
-    ax2 = fig.add_subplot(132)
-    dat2 = np.array(fwhm_opt)*24*60
-    hist_dat2 = ax2.hist(dat2, color=fwhm_color, bins=nbins, linewidth=1.5, cumulative=True, density=True, histtype='step')
-    #ax2.plot([flare_properties['fwhm'][0], flare_properties['fwhm'][0]], [0, np.max(hist_dat2[0]) * 10], '--', color='black', lw=1)
-    ax2.plot([0, 0], [0, np.max(hist_dat2[0]) * 10], '--', color='#000000', lw=1)
-    ax2.set_xlim(np.min(hist_dat2[1]), np.max(hist_dat2[1]))
-    ax2.set_ylim([0, 1])
+
+    ax2 = fig.add_subplot(142)
+
+    y_hist, bin_edges = np.histogram(dat2, bins='auto')
+    hist_dat2 = ax2.hist(dat2, color=fwhm_color, bins=bin_edges) #, weights=np.ones(len(dat2))/len(dat2)) #, edgecolor='#000000', linewidth=1.2)
+    ax2.hist(dat2, color='#000000', bins=bin_edges, linewidth=1.2, histtype='step') #, weights=np.ones(len(dat2))/len(dat2))
+    #ax2.plot([0, 0], [0, np.max(hist_dat2[0]) * 10], '--', color='#000000', lw=1)
+
+    # ax2.set_xlim(-x_factor*bin_width,x_factor*bin_width)
+    ax2.set_ylim([0, np.max(hist_dat2[0]) * 1.10])
     #plt.legend(fontsize=10, loc="upper left")
-    ax2.set_xlabel("Difference From True FWHM (min)", fontsize=font_size, style='normal', family='sans-serif')
-    ax2.set_title("True FWHM: " + str(np.round(fwhm_true[0]*24*60,3)), fontsize=font_size, style='normal', family='sans-serif')
+    ax2.set_xlabel("Fraction of Lightcurve Cadence", fontsize=font_size, style='normal', family='sans-serif')
+    #ax2.set_ylabel("Counts", fontsize=font_size, style='normal', family='sans-serif')
+    ax2.set_title("FWHM", fontsize=font_size, style='normal', family='sans-serif')
     ax2.tick_params(axis='both', direction='in', labelsize=font_size, top=True, right=False)
 
-    ax3 = fig.add_subplot(133)
-    dat3 = ampl_opt
-    hist_dat3 = ax3.hist(dat3, color=ampl_color, bins=nbins*2, linewidth=1.5, cumulative=True, density=True, histtype='step')
-    # ax3.plot([test_amplitudes[s]*stddev, test_amplitudes[s]*stddev], [0, np.max(hist_dat3[0]) * 10], '--', color='black', lw=1)
-    ax3.plot([0, 0], [0, np.max(hist_dat3[0]) * 10], '--', color='#000000', lw=1)
-    ax3.set_xlim(np.min(hist_dat3[1]), np.max(hist_dat3[1]))
-    ax3.set_ylim([0, 1])
+
+    ax3 = fig.add_subplot(143)
+
+    y_hist, bin_edges = np.histogram(dat3, bins='auto')
+    hist_dat3 = ax3.hist(dat3, color=ampl_color, bins=bin_edges) #, weights=np.ones(len(dat3))/len(dat3)) #, edgecolor='#000000', linewidth=1.2)
+    ax3.hist(dat3, color='#000000', bins=bin_edges, linewidth=1.2, histtype='step') #, weights=np.ones(len(dat3))/len(dat3))
+    #ax3.plot([0, 0], [0, np.max(hist_dat3[0]) * 10], '--', color='#000000', lw=1)
+
+    # ax3.set_xlim(np.min(bin_edges), x_factor * bin_width)
+    ax3.set_ylim([0, np.max(hist_dat3[0]) * 1.10])
     # plt.legend(fontsize=10, loc="upper left")
-    ax3.set_xlabel("Difference From True Amplitude (ppt)", fontsize=font_size, style='normal', family='sans-serif')
-    ax3.set_title("True Amplitude: " + str(np.round(ampl_true[0],3)), fontsize=font_size, style='normal', family='sans-serif')
+    ax3.set_xlabel("Amplitude", fontsize=font_size, style='normal', family='sans-serif')
+    #ax3.set_ylabel("Counts", fontsize=font_size, style='normal', family='sans-serif')
+    ax3.set_title("Amplitude", fontsize=font_size, style='normal', family='sans-serif')
     ax3.tick_params(axis='both', direction='in', labelsize=font_size, top=True, right=False)
+
+
+    ax4 = fig.add_subplot(144)
+
+    y_hist, bin_edges = np.histogram(dat4, bins='auto')
+    hist_dat4 = ax4.hist(dat4, color=impulsiveness_color, bins=bin_edges) #, weights=np.ones(len(dat4)) / len(dat4))  # , edgecolor='#000000', linewidth=1.2)
+    ax4.hist(dat4, color='#000000', bins=bin_edges, linewidth=1.2, histtype='step') #, weights=np.ones(len(dat4)) / len(dat4))
+    #ax4.plot([0, 0], [0, np.max(hist_dat4[0]) * 10], '--', color='#000000', lw=1)
+
+    # ax4.set_xlim(np.min(bin_edges), x_factor * bin_width)
+    ax4.set_ylim([0, np.max(hist_dat4[0]) * 1.10])
+    # plt.legend(fontsize=10, loc="upper left")
+    ax4.set_xlabel("Impulsiveness", fontsize=font_size, style='normal', family='sans-serif')
+    #ax4.set_ylabel("Fraction of Total", fontsize=font_size, style='normal', family='sans-serif')
+    ax4.set_title("Impulsiveness", fontsize=font_size, style='normal',family='sans-serif')
+    ax4.tick_params(axis='both', direction='in', labelsize=font_size, top=True, right=False)
+
+
+
     plt.tight_layout()
     plt.savefig('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/' + save_as, dpi=300)
     plt.close()
     #plt.show()
-
-def plot_test_fit(x_flare,y_flare,x_fit,y_fit,y_true,eq_dur,flare_energy,eq_dur_true,flare_energy_true,save_as):
-    font_size = 'large'
-    t_peak_color = '#006699'
-    fwhm_color = '#990033'
-    ampl_color = '#669900'
-
-    max_amp = np.max([np.max(y_true), np.max(y_flare), np.max(y_fit)]) - 1.0
-    max_gap = 0.05 * max_amp
-
-    #import pdb; pdb.set_trace()
-
-    fig = plt.figure(1, figsize=(7,5.5), facecolor="#ffffff")  # , dpi=300)
-    ax1 = fig.add_subplot(111)
-    #ax1.set_xlim([0, 1])
-    ax1.set_xlabel("Time (days)", fontsize=font_size, style='normal', family='sans-serif')
-    ax1.set_ylabel("Flux (ppt)", fontsize=font_size, style='normal', family='sans-serif')
-    ax1.set_title(r'Equivalent Duration = ' + str(np.round(eq_dur, 2)) + ' (sec) Flare Energy = ' + str('{:0.3e}'.format(flare_energy)) + 'erg s$^{-1}$\nTrue Equivalent Duration = ' + str(np.round(eq_dur_true, 2)) + ' (sec) True Flare Energy = ' + str('{:0.3e}'.format(flare_energy_true)) + 'erg s$^{-1}$', pad=10, fontsize=font_size, style='normal', family='sans-serif')
-    ax1.tick_params(axis='both', direction='in', labelsize=font_size, top=True, right=False)
-    ax1.plot(x_fit, y_true, c='#000000', lw=0.5, label='True Flare')
-    ax1.plot(x_fit, y_fit, c='blue', lw=2, label='Flare Fit')
-    ax1.fill_between(x_fit, y_fit, y2=np.zeros_like(y_fit), color='blue', alpha=0.15)
-    ax1.scatter(x_flare, y_flare, c='red', label='Test Flare')
-    ax1.set_ylim([1.0 - max_gap, 1 + max_amp + max_gap])
-    ax1.legend(fontsize=font_size, loc='upper right')
-    plt.tight_layout()
-    plt.savefig('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/' + save_as, dpi=300)
-    plt.close()
-    #plt.show()
-
-def fit_statistics(cadence, stddev, n_reps = 100):
-
-    #test_amplitudes = np.geomspace(10,20000,20)
-    test_amplitudes = [500,1000,2000,5000,10000,20000,50000]
-
-    for s in range(len(test_amplitudes)):
-
-        t_peak_opt = []
-        fwhm_opt = []
-        ampl_opt = []
-
-        t_peak_true = []
-        fwhm_true = []
-        ampl_true = []
-
-        for rep in range(n_reps):
-
-            x_synth, y_synth, y_synth_noscatter, flare_window, flare_properties = create_synthetic(cadence, stddev, given_amplitude=test_amplitudes[s],fixed_amplitude=True) #, fixed_fwhm=True)
-
-            print('Generating Statistics for Amplitude ' + str(test_amplitudes[s]) + '...\nRep. ' + str(rep+1) + ':')
-            for w in range(len(flare_window)):
-
-                # if np.mod(w+1,100) == 0:
-                #     print(w+1)
-
-                t_peak_true.append(flare_properties["tpeak"][w])
-                fwhm_true.append(flare_properties["fwhm"][w])
-                ampl_true.append(flare_properties["amplitude"][w])
-
-                where_start = np.int(np.floor(np.random.uniform(0, 16, 1)))
-
-                x_downsample = x_synth[where_start::15]
-                y_downsample = y_synth[where_start::15]
-                # y_noscatter_downsample = y_synth_noscatter[where_start::15]
-
-                window = np.where((x_downsample >= flare_window[w][0]) & (x_downsample <= flare_window[w][1]))[0]
-                x_window = x_downsample[window]
-                y_window = y_downsample[window]
-                # y_noscatter_window = y_noscatter_downsample[window]
-
-                guess_peak = x_window[np.where(y_window == np.max(y_window))[0][0]]
-                guess_fwhm = 0.01
-                guess_ampl = y_window[np.where(y_window == np.max(y_window))[0][0]]
-
-                try:
-                    popt, pcov = optimize.curve_fit(aflare1, x_window, y_window, p0=(guess_peak, guess_fwhm, guess_ampl)) # diag=(1./x_window.mean(),1./y_window.mean()))
-                except:
-                    continue
-
-                if np.mod(w+1,20) == 0:
-                    x_fit = np.linspace(np.min(x_window),np.max(x_window),500)
-                    y_fit = aflare1(x_fit,*popt)
-                    y_true = aflare1(x_fit,flare_properties["tpeak"][w],flare_properties["fwhm"][w],flare_properties["amplitude"][w])
-                    if not os.path.exists('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/Amp_' + str(test_amplitudes[s])):
-                        os.mkdir('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/Amp_' + str(test_amplitudes[s]))
-                    save_as_test = 'Amp_' + str(test_amplitudes[s]) + '/' + str(rep+1) + '_' + str(w+1) + '.pdf'
-                    plot_test_fit(x_window,y_window,x_fit,y_fit,y_true,save_as_test)
-
-                t_peak_opt.append((popt[0] - flare_properties["tpeak"][w]))
-                fwhm_opt.append((popt[1] - flare_properties["fwhm"][w])/flare_properties["tpeak"][w]*100)
-                ampl_opt.append((popt[2] - flare_properties["amplitude"][w])/flare_properties["tpeak"][w]*100)
-
-        save_as_hist = 'Amp_' + str(test_amplitudes[s]) + '/fit_stat_hist_ampl_' + str(test_amplitudes[s]) + '.pdf'
-        plot_stat_hist(t_peak_opt, fwhm_opt, ampl_opt, fwhm_true, ampl_true, save_as_hist)
-        # save_as_cum = 'Amp_' + str(test_amplitudes[s]) + '/fit_stat_cum_ampl_' + str(test_amplitudes[s]) + '.pdf'
-        # plot_stat_cum(t_peak_opt, fwhm_opt, ampl_opt, fwhm_true, ampl_true, save_as_cum)
-        # import pdb;pdb.set_trace()
-def fit_statistics2(cadence, stddev, downsample = True,n_reps = 100):
-
-    #test_amplitudes = np.geomspace(10,20000,20)
-    test_amplitudes = [3,5,10,100,250,500,750,1000,1200,1500]
-
-    for s in range(len(test_amplitudes)):
-
-        t_peak_opt = []
-        fwhm_opt = []
-        ampl_opt = []
-        eq_duration_opt = []
-        energy_opt = []
-
-        t_peak_true = []
-        fwhm_true = []
-        ampl_true = []
-        eq_duration_true = []
-        energy_true = []
-
-        for rep in range(n_reps):
-
-            x_synth, y_synth, y_synth_noscatter, flare_window, flare_properties = create_synthetic(cadence, stddev, given_amplitude=test_amplitudes[s],fixed_ampltude=True,fixed_fwhm=False) #, fixed_fwhm=True)
-
-            print('Generating Statistics for Amplitude ' + str(test_amplitudes[s]) + '...\nRep. ' + str(rep+1) + ':')
-            for w in range(len(flare_window)):
-
-                # if np.mod(w+1,100) == 0:
-                #     print(w+1)
-
-                t_peak_true.append(flare_properties["tpeak"][w])
-                fwhm_true.append(flare_properties["fwhm"][w])
-                ampl_true.append(flare_properties["amplitude"][w])
-
-                if downsample == True:
-                    where_start = np.int(np.floor(np.random.uniform(0, 16, 1)))
-
-                    x_downsample = x_synth[where_start::15]
-                    y_downsample = y_synth[where_start::15]
-                    # y_noscatter_downsample = y_synth_noscatter[where_start::15]
-                if downsample == False:
-                    x_downsample = x_synth[0::1]
-                    y_downsample = y_synth[0::1]
-                    # y_noscatter_downsample = y_synth_noscatter[0::1]
-
-                window = np.where((x_downsample >= flare_window[w][0]) & (x_downsample <= flare_window[w][1]))[0]
-                x_window = x_downsample[window]
-                y_window = y_downsample[window]
-                # y_noscatter_window = y_noscatter_downsample[window]
-
-                guess_peak = x_window[np.where(y_window == np.max(y_window))[0][0]]
-                guess_fwhm = 0.01
-                guess_ampl = y_window[np.where(y_window == np.max(y_window))[0][0]]
-
-                try:
-                    popt, pcov = optimize.curve_fit(aflare1, x_window, y_window, p0=(guess_peak, guess_fwhm, guess_ampl)) # diag=(1./x_window.mean(),1./y_window.mean()))
-                except:
-                    continue
-
-                x_fit = np.linspace(np.min(x_window), np.max(x_window), 5000)
-                y_fit = aflare1(x_fit, *popt)
-                y_true = aflare1(x_fit, flare_properties["tpeak"][w], flare_properties["fwhm"][w], flare_properties["amplitude"][w])
-
-                L_star = 1.2  # solar luminosity
-                L_star *= 3.827e33  # convert to erg/s
-
-                eq_dur = np.trapz(y_fit, x=x_fit)
-                eq_dur *= 86400  # convert days to seconds
-                flare_energy = L_star * eq_dur
-
-                eq_dur_true = np.trapz(y_true, x=x_fit)
-                eq_dur_true *= (24*60*60)  # convert days to seconds
-                flare_energy_true = L_star * eq_dur_true
-
-                eq_duration_true.append(eq_dur_true)
-                energy_true.append(flare_energy_true)
-
-                eq_duration_opt.append((eq_dur - eq_dur_true)/eq_dur_true*100)
-                energy_opt.append((flare_energy - flare_energy_true)/flare_energy_true*100)
-
-                if np.mod(w+1,50) == 0:
-                    if not os.path.exists('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/Amp_' + str(test_amplitudes[s])):
-                        os.mkdir('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/Amp_' + str(test_amplitudes[s]))
-                    save_as_test = 'Amp_' + str(test_amplitudes[s]) + '/' + str(rep+1) + '_' + str(w+1) + '.pdf'
-                    plot_test_fit(x_window,y_window+1,x_fit,y_fit+1,y_true+1,eq_dur,flare_energy,eq_dur_true,flare_energy_true,save_as_test)
-
-                t_peak_opt.append((popt[0] - flare_properties["tpeak"][w]))
-                fwhm_opt.append((popt[1] - flare_properties["fwhm"][w])/flare_properties["tpeak"][w]*100)
-                ampl_opt.append((popt[2] - flare_properties["amplitude"][w])/flare_properties["tpeak"][w]*100)
-
-        save_as_hist = 'Amp_' + str(test_amplitudes[s]) + '/fit_stat_hist_ampl_' + str(test_amplitudes[s]) + '.pdf'
-        #plot_stat_hist(t_peak_opt, fwhm_opt, ampl_opt, fwhm_true, ampl_true, save_as_hist)
-        plot_stat_hist2(t_peak_opt,fwhm_opt,ampl_opt,eq_duration_opt,energy_opt,downsample,save_as_hist)
-        # save_as_cum = 'Amp_' + str(test_amplitudes[s]) + '/fit_stat_cum_ampl_' + str(test_amplitudes[s]) + '.pdf'
-        # plot_stat_cum(t_peak_opt, fwhm_opt, ampl_opt, fwhm_true, ampl_true, save_as_cum)
-        # import pdb;pdb.set_trace()
-def fit_statistics3(cadence, stddev, set_fixed_amplitude=False, downsample = True,n_reps = 100):
-
-
-    if set_fixed_amplitude == True:
-        test_amplitudes = [3,5,10,100,250,500,750,1000,1200,1500]
-
-        for s in range(len(test_amplitudes)):
-
-            t_peak_opt = []
-            fwhm_opt = []
-            ampl_opt = []
-            eq_duration_opt = []
-            energy_opt = []
-
-            t_peak_true = []
-            fwhm_true = []
-            ampl_true = []
-            eq_duration_true = []
-            energy_true = []
-
-            for rep in range(n_reps):
-
-                x_synth, y_synth, y_synth_noscatter, flare_window, flare_properties = create_synthetic(cadence, stddev, given_amplitude=test_amplitudes[s],fixed_amplitude=True,fixed_fwhm=False) #, fixed_fwhm=True)
-
-                print('Generating Statistics for Amplitude ' + str(test_amplitudes[s]) + '...\nRep. ' + str(rep+1) + ':')
-                for w in range(len(flare_window)):
-
-                    # if np.mod(w+1,100) == 0:
-                    #     print(w+1)
-
-                    t_peak_true.append(flare_properties["tpeak"][w])
-                    fwhm_true.append(flare_properties["fwhm"][w])
-                    ampl_true.append(flare_properties["amplitude"][w])
-                    impulsive_index_true.append(flare_properties["amplitude"][w] / flare_properties["fwhm"][w])
-
-                    if downsample == True:
-                        where_start = np.int(np.floor(np.random.uniform(0, 16, 1)))
-
-                        x_downsample = x_synth[where_start::15]
-                        y_downsample = y_synth[where_start::15]
-                        # y_noscatter_downsample = y_synth_noscatter[where_start::15]
-                    if downsample == False:
-                        x_downsample = x_synth[0::1]
-                        y_downsample = y_synth[0::1]
-                        # y_noscatter_downsample = y_synth_noscatter[0::1]
-
-                    window = np.where((x_downsample >= flare_window[w][0]) & (x_downsample <= flare_window[w][1]))[0]
-                    x_window = x_downsample[window]
-                    y_window = y_downsample[window]
-                    # y_noscatter_window = y_noscatter_downsample[window]
-
-                    guess_peak = x_window[np.where(y_window == np.max(y_window))[0][0]]
-                    guess_fwhm = 0.01
-                    guess_ampl = y_window[np.where(y_window == np.max(y_window))[0][0]]
-
-                    try:
-                        popt, pcov = optimize.curve_fit(aflare1, x_window, y_window, p0=(guess_peak, guess_fwhm, guess_ampl)) # diag=(1./x_window.mean(),1./y_window.mean()))
-                    except:
-                        continue
-
-                    x_fit = np.linspace(np.min(x_window), np.max(x_window), 5000)
-                    y_fit = aflare1(x_fit, *popt)
-                    y_true = aflare1(x_fit, flare_properties["tpeak"][w], flare_properties["fwhm"][w], flare_properties["amplitude"][w])
-
-                    L_star = 1.2  # solar luminosity
-                    L_star *= 3.827e33  # convert to erg/s
-
-                    eq_dur = np.trapz(y_fit, x=x_fit)
-                    eq_dur *= 86400  # convert days to seconds
-                    flare_energy = L_star * eq_dur
-
-                    eq_dur_true = np.trapz(y_true, x=x_fit)
-                    eq_dur_true *= (24*60*60)  # convert days to seconds
-                    flare_energy_true = L_star * eq_dur_true
-
-                    eq_duration_true.append(eq_dur_true)
-                    energy_true.append(flare_energy_true)
-
-                    eq_duration_opt.append((eq_dur - eq_dur_true)/eq_dur_true*100)
-                    energy_opt.append((flare_energy - flare_energy_true)/flare_energy_true*100)
-
-                    if np.mod(w+1,100) == 0:
-                        if not os.path.exists('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/Amp_' + str(test_amplitudes[s])):
-                            os.mkdir('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/Amp_' + str(test_amplitudes[s]))
-                        save_as_test = 'Amp_' + str(test_amplitudes[s]) + '/' + str(rep+1) + '_' + str(w+1) + '.pdf'
-                        plot_test_fit(x_window,y_window+1,x_fit,y_fit+1,y_true+1,eq_dur,flare_energy,eq_dur_true,flare_energy_true,save_as_test)
-
-                    t_peak_opt.append((popt[0] - flare_properties["tpeak"][w]))
-                    fwhm_opt.append((popt[1] - flare_properties["fwhm"][w])/flare_properties["tpeak"][w]*100)
-                    ampl_opt.append((popt[2] - flare_properties["amplitude"][w])/flare_properties["tpeak"][w]*100)
-
-                    if np.mod(w + 1, 100) == 0:
-                        save_as_hist = 'Amp_' + str(test_amplitudes[s]) + '/fit_stat_hist_ampl_' + str(test_amplitudes[s]) + '.pdf'
-                        # plot_stat_hist(t_peak_opt, fwhm_opt, ampl_opt, fwhm_true, ampl_true, save_as_hist)
-                        plot_stat_hist2(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, impulsive_index_true, downsample, save_as_hist)
-
-            save_as_hist = 'Amp_' + str(test_amplitudes[s]) + '/fit_stat_hist_ampl_' + str(test_amplitudes[s]) + '.pdf'
-            #plot_stat_hist(t_peak_opt, fwhm_opt, ampl_opt, fwhm_true, ampl_true, save_as_hist)
-            plot_stat_hist2(t_peak_opt,fwhm_opt,ampl_opt,eq_duration_opt,energy_opt,impulsive_index_true,downsample,save_as_hist)
-            # save_as_cum = 'Amp_' + str(test_amplitudes[s]) + '/fit_stat_cum_ampl_' + str(test_amplitudes[s]) + '.pdf'
-            # plot_stat_cum(t_peak_opt, fwhm_opt, ampl_opt, fwhm_true, ampl_true, save_as_cum)
-            # import pdb;pdb.set_trace()
-    if set_fixed_amplitude == False:
-
-        t_peak_opt = []
-        fwhm_opt = []
-        ampl_opt = []
-        eq_duration_opt = []
-        energy_opt = []
-
-        t_peak_true = []
-        fwhm_true = []
-        ampl_true = []
-        eq_duration_true = []
-        energy_true = []
-        impulsive_index_true = []
-
-        for rep in range(n_reps):
-
-            x_synth, y_synth, y_synth_noscatter, flare_window, flare_properties = create_synthetic(cadence, stddev, fixed_amplitude=False, fixed_fwhm=False)  # , fixed_fwhm=True)
-
-            print('Generating Flare Statistics...\nRep. ' + str(rep + 1) + ':')
-            for w in range(len(flare_window)):
-
-                # if np.mod(w+1,100) == 0:
-                #     print(w+1)
-
-
-                if downsample == True:
-                    where_start = np.int(np.floor(np.random.uniform(0, 16, 1)))
-
-                    x_downsample = x_synth[where_start::15]
-                    y_downsample = y_synth[where_start::15]
-                    # y_noscatter_downsample = y_synth_noscatter[where_start::15]
-                if downsample == False:
-                    x_downsample = x_synth[0::1]
-                    y_downsample = y_synth[0::1]
-                    # y_noscatter_downsample = y_synth_noscatter[0::1]
-
-                window = np.where((x_downsample >= flare_window[w][0]) & (x_downsample <= flare_window[w][1]))[0]
-                x_window = x_downsample[window]
-                y_window = y_downsample[window]
-                # y_noscatter_window = y_noscatter_downsample[window]
-
-                guess_peak = x_window[np.where(y_window == np.max(y_window))[0][0]]
-                guess_fwhm = 0.01
-                guess_ampl = y_window[np.where(y_window == np.max(y_window))[0][0]]
-
-                try:
-                    popt, pcov = optimize.curve_fit(aflare1, x_window, y_window, p0=(
-                    guess_peak, guess_fwhm, guess_ampl))  # diag=(1./x_window.mean(),1./y_window.mean()))
-                except:
-                    continue
-
-                x_fit = np.linspace(np.min(x_window), np.max(x_window), 5000)
-                y_fit = aflare1(x_fit, *popt)
-                y_true = aflare1(x_fit, flare_properties["tpeak"][w], flare_properties["fwhm"][w], flare_properties["amplitude"][w])
-
-                L_star = 1.2  # solar luminosity
-                L_star *= 3.827e33  # convert to erg/s
-
-                eq_dur = np.trapz(y_fit, x=x_fit)
-                eq_dur *= 86400  # convert days to seconds
-                flare_energy = L_star * eq_dur
-
-                eq_dur_true = np.trapz(y_true, x=x_fit)
-                eq_dur_true *= (24 * 60 * 60)  # convert days to seconds
-                flare_energy_true = L_star * eq_dur_true
-
-                eq_duration_true.append(eq_dur_true)
-                energy_true.append(flare_energy_true)
-
-                eq_duration_opt.append((eq_dur - eq_dur_true) / eq_dur_true * 100)
-                energy_opt.append((flare_energy - flare_energy_true) / flare_energy_true * 100)
-
-                if np.mod(w + 1, 100) == 0:
-                    if not os.path.exists('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/All_Amplitudes/'):
-                        os.mkdir('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/All_Amplitudes/')
-                    save_as_test = 'All_Amplitudes/' + str(rep + 1) + '_' + str(w + 1) + '.pdf'
-                    plot_test_fit(x_window, y_window + 1, x_fit, y_fit + 1, y_true + 1, eq_dur, flare_energy, eq_dur_true, flare_energy_true, save_as_test)
-
-                t_peak_opt.append((popt[0] - flare_properties["tpeak"][w]))
-                fwhm_opt.append((popt[1] - flare_properties["fwhm"][w]) / flare_properties["fwhm"][w] * 100)
-                ampl_opt.append((popt[2] - flare_properties["amplitude"][w]) / flare_properties["amplitude"][w] * 100)
-
-                t_peak_true.append(flare_properties["tpeak"][w])
-                fwhm_true.append(flare_properties["fwhm"][w])
-                ampl_true.append(flare_properties["amplitude"][w])
-                impulsive_index_true.append(flare_properties["amplitude"][w] / flare_properties["fwhm"][w])
-
-                if np.mod(w + 1, 100) == 0:
-                    save_as_hist = 'All_Amplitudes/fit_stat_hist_all_amplitudes.pdf'
-                    # plot_stat_hist(t_peak_opt, fwhm_opt, ampl_opt, fwhm_true, ampl_true, save_as_hist)
-                    plot_stat_hist3(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, impulsive_index_true, save_as_hist)
-
-                    save_as_hist_2D_fwhm = 'All_Amplitudes/fit_stat_hist_2D_fwhm_sum.pdf'
-                    sort_property6(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, t_peak_true, fwhm_true,
-                                  ampl_true, eq_duration_true, energy_true, impulsive_index_true, 'sum', save_as_hist_2D_fwhm,
-                                  stddev, property_to_sort='fwhm')
-                    save_as_hist_2D_fwhm = 'All_Amplitudes/fit_stat_hist_2D_fwhm_cum.pdf'
-                    sort_property6(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, t_peak_true, fwhm_true,
-                                   ampl_true, eq_duration_true, energy_true, impulsive_index_true, 'cumulative',
-                                   save_as_hist_2D_fwhm,
-                                   stddev, property_to_sort='fwhm')
-                    save_as_hist_2D_ampl = 'All_Amplitudes/fit_stat_hist_2D_ampl_sum.pdf'
-                    sort_property6(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, t_peak_true, fwhm_true,
-                                   ampl_true, eq_duration_true, energy_true, impulsive_index_true, 'sum', save_as_hist_2D_ampl,
-                                   stddev, property_to_sort='amplitude')
-                    save_as_hist_2D_ampl = 'All_Amplitudes/fit_stat_hist_2D_ampl_cum.pdf'
-                    sort_property6(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, t_peak_true, fwhm_true,
-                                   ampl_true, eq_duration_true, energy_true, impulsive_index_true, 'cumulative',
-                                   save_as_hist_2D_ampl, stddev, property_to_sort='amplitude')
-
-
-        # save_as_hist = 'All_Amplitudes/fit_stat_hist_all_amplitudes.pdf'
-        # plot_stat_hist3(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, impulsive_index_true, save_as_hist)
-        #
-        # save_as_hist_2D = 'All_Amplitudes/fit_stat_hist_2D.pdf'
-        # sort_property2(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, t_peak_true, fwhm_true,
-        #               ampl_true, eq_duration_true, energy_true, impulsive_index_true, save_as_hist_2D, property_to_sort='fwhm')
-        # import pdb;pdb.set_trace()
-def fit_statistics4(cadence, stddev, set_fixed_amplitude=False, downsample = True, set_cadence = 30, n_reps = 100):
+    #import pdb;pdb.set_trace()
+
+
+def sort_property6(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, flare_energy_opt, t_peak_true, fwhm_true, ampl_true, eq_duration_true, flare_energy_true, impulsiveness, plot_type, save_as, stddev, lc_cadence, set_cadence, bin_slice_factor, property_to_sort='fwhm'):
+
+    opt_list = [np.array(t_peak_opt) * 24 * 60, fwhm_opt, ampl_opt, eq_duration_opt, flare_energy_opt, impulsiveness]
+    # true_list = [t_peak_true, fwhm_true, ampl_true, eq_duration_true, flare_energy_true]
+    x_label_list = ['Difference From True Peak Time (min)', '% Difference from True FWHM',
+                    '% Difference from True Amplitude', '% Difference from True Equivalent Duration',
+                    '% Difference from True Flare Energy', 'Impulsive Index']
+
+    #bin_slice_factor = 1.
+
+    if property_to_sort == 'fwhm':
+
+        print('Plotting FWHM sort...')
+
+        fwhm_min = 0.5 * (1. / 60.) * (1. / 24.)
+        fwhm_max = set_cadence * (1. / 60.) * (1. / 24.)
+        #fwhm_grid = np.linspace(fwhm_min, fwhm_max, 101)
+        grid_spacing = ((lc_cadence * (1. / 60.) * (1. / 24.)) - fwhm_min)/100.
+        fwhm_grid = np.arange(fwhm_min,fwhm_max+grid_spacing,grid_spacing)
+
+        fwhm_slots = []
+        # Iterate over a sequence of numbers
+        for slot_num in range(len(fwhm_grid) - 1):
+            # In each iteration, add an empty list to the main list
+            fwhm_slots.append([])
+
+        for grid_index in range(1, len(fwhm_grid)):
+            for true_index in range(0, len(fwhm_true)):
+                if (fwhm_true[true_index] > fwhm_grid[grid_index - 1]) and (fwhm_true[true_index] <= fwhm_grid[grid_index]):
+                    fwhm_slots[grid_index - 1].append(true_index)
+
+        font_size = 'small'
+        font_style = 'normal'
+        font_family = 'sans-serif'
+        impulse_max_lim_factor = 0.50
+        xlim_mult = 15. * bin_slice_factor
+
+        fig = plt.figure(figsize=(10, 6), facecolor='#ffffff')  # , dpi=300)
+        for prop in range(len(opt_list)):
+            # print(prop)
+
+            if prop <= 2:
+                plot_bott = 0.57
+                plot_top = 0.98
+                plot_left = 0.05 + 0.27 * prop + 0.05 * prop
+                plot_right = 0.05 + 0.27 * (prop + 1) + 0.05 * prop
+            if prop > 2:
+                plot_bott = 0.06
+                plot_top = 0.48
+                plot_left = 0.05 + 0.27 * (prop - 3) + 0.05 * (prop - 3)
+                plot_right = 0.05 + 0.27 * ((prop - 3) + 1) + 0.05 * (prop - 3)
+            gs1 = fig.add_gridspec(nrows=6, ncols=6, left=plot_left, right=plot_right, top=plot_top, bottom=plot_bott,
+                                   wspace=0, hspace=0)
+            ax1 = fig.add_subplot(gs1[2:6, 0:4])
+            ax2 = fig.add_subplot(gs1[0:2, 0:4], xticklabels=[])  # , sharey=ax1)
+            ax3 = fig.add_subplot(gs1[2:6, 4:6], yticklabels=[])  # , sharex=ax1)
+
+            y_hist, bin_edges = np.histogram(opt_list[prop], bins='auto')
+            # bin_edges = np.arange(np.min(bin_edges), np.max(bin_edges)+0.5*np.diff(bin_edges)[0], 0.5*np.diff(bin_edges)[0])
+            if (prop != 5) and (bin_slice_factor > 1):
+                axis_spacing = np.arange(0,len(bin_edges),1)
+                if bin_slice_factor == 3:
+                    new_axis_spacing = np.arange(np.min(axis_spacing),np.max(axis_spacing)+1./bin_slice_factor,1./bin_slice_factor)[0:-1]
+                else:
+                    new_axis_spacing = np.arange(np.min(axis_spacing),np.max(axis_spacing)+1./bin_slice_factor,1./bin_slice_factor)
+                bin_edges = np.interp(new_axis_spacing,axis_spacing,bin_edges)
+            #bin_edges = np.interp(np.arange())
+
+            #import pdb; pdb.set_trace()
+
+            Z = np.zeros((len(fwhm_grid) - 1, len(bin_edges) - 1))
+            print('creating first grid')
+            for slot_index in range(len(fwhm_slots)):
+                y_hist, bin_edges = np.histogram(np.array(opt_list[prop])[fwhm_slots[slot_index]], bins=bin_edges)
+                Z[slot_index, :] = y_hist
+
+            row_hist = sum_rows(Z)
+            print('summed rows')
+            col_hist1 = sum_cols(Z)
+            print('summed cols')
+            if plot_type == 'cumulative':
+                cum_hist1 = cum_cols(Z)
+
+            if prop != 5:
+                bin_width = np.diff(bin_edges)[0]
+                where_within = np.where((bin_edges >= -xlim_mult * bin_width) & (bin_edges <= xlim_mult * bin_width))[0]
+                y_hist, bin_edges = np.histogram(opt_list[prop], bins=bin_edges[where_within])
+            if prop == 5:
+                where_within = np.where(bin_edges <= impulse_max_lim_factor * np.max(bin_edges))[0]
+                y_hist, bin_edges = np.histogram(opt_list[prop], bins=bin_edges[where_within])
+
+            col_hist = np.array(col_hist1)[where_within[:-1]]
+            if plot_type == 'cumulative':
+                cum_hist = np.array(cum_hist1)[where_within[:-1]]
+
+            Z = np.zeros((len(fwhm_grid) - 1, len(bin_edges) - 1))
+            print('creating second grid')
+            for slot_index in range(len(fwhm_slots)):
+                y_hist, bin_edges = np.histogram(np.array(opt_list[prop])[fwhm_slots[slot_index]], bins=bin_edges)
+                Z[slot_index, :] = y_hist
+
+            print(len(y_hist))
+            # import pdb; pdb.set_trace()
+
+            # ax = fig.add_subplot(2,3,prop+1)
+            # ax_test.set_title('fit = %0.4f+/-%4f * x + %0.4f+/-%4f' % (slope, slope_err, yint, yint_err))
+            # ax.set_title('Original', fontsize=font_size, style=font_style, family=font_family)
+            if (prop == 0) or (prop == 3):
+                ax1.set_ylabel('True FWHM (min)', fontsize=font_size, style=font_style, family=font_family)
+            ax1.set_xlabel(x_label_list[prop], fontsize=font_size, style=font_style, family=font_family)
+
+            X, Y = np.meshgrid(bin_edges[0:-1], (fwhm_grid[0:-1] * 24 * 60))
+            p = ax1.pcolor(X, Y, Z, cmap=cm.BuPu, edgecolors='face', vmin=Z.min(), vmax=Z.max(), rasterized=True)
+            # import pdb; pdb.set_trace()
+            # cbaxes = fig.add_axes([])
+            cb = fig.colorbar(p)  # , ticks=linspace(0,abs(Z).max(),10))
+            # if (prop == 2) or (prop == 5):
+            #     cb.set_label(label='Counts', fontsize=font_size, style=font_style, family=font_family)
+            cb.ax.tick_params(labelsize=font_size)  # , style=font_style, family=font_family)
+            # cb.ax.set_yticklabels(np.arange(0,Z.max(),0.1),style=font_style, family=font_family)
+
+            if plot_type == 'cumulative':
+                ax2.bar(np.array(bin_edges[:-1]), cum_hist, width=np.diff(bin_edges), color='None', edgecolor="black", align="edge", rasterized=True)
+            if plot_type == 'sum':
+                #import pdb; pdb.set_trace()
+                ax2.bar(np.array(bin_edges[:-1]), col_hist, width=np.diff(bin_edges), color='None', edgecolor="black", align="edge", rasterized=True)
+            ax3.barh(fwhm_grid[:-1], row_hist, height=np.diff(fwhm_grid), color='None', edgecolor="black", align="edge", rasterized=True)
+
+            if prop != 5:
+                ax1.plot([0, 0], [np.min(fwhm_grid * 24 * 60), np.max(fwhm_grid * 24 * 60)], color='#ff0066', lw=1)
+                ax1.plot([np.min(bin_edges), np.max(bin_edges)], [lc_cadence, lc_cadence], color='#000000', alpha=0.2, lw=0.5)
+                if plot_type == 'cumulative':
+                    ax2.plot([0, 0], [0, 1.0], color='#ff0066', lw=1)
+                    ax2.set_ylim([0, 1.0])
+                if plot_type == 'sum':
+                    ax2.plot([0, 0], [0, np.max(col_hist) * 1.10], color='#ff0066', lw=1)
+                    ax2.set_ylim([0, np.max(col_hist) * 1.10])
+
+            ax3.set_ylim([np.min(fwhm_grid), np.max(fwhm_grid)])
+            ax3.set_xlim([0, np.max(row_hist) * 1.10])
+            ax1.set_ylim([np.min(fwhm_grid[0:-1] * 24 * 60), np.max(fwhm_grid[0:-1] * 24 * 60)])
+
+            if (prop == 0) or (prop == 1):
+                ax1.set_xlim(np.min(bin_edges), np.max(bin_edges))
+                ax2.set_xlim(np.min(bin_edges), np.max(bin_edges))
+            if (prop == 2) or (prop == 3) or (prop == 4):
+                ax1.set_xlim(np.min(bin_edges), np.max(bin_edges))
+                ax2.set_xlim(np.min(bin_edges), np.max(bin_edges))
+            if prop == 5:
+                ax1.set_xlim(0, impulse_max_lim_factor * np.max(bin_edges))
+                ax2.set_xlim(0, impulse_max_lim_factor * np.max(bin_edges))
+
+            if prop == 0:
+                ax2.set_title(str(np.round(lc_cadence,2)) + ' min Cadence')
+
+            ax1.tick_params(axis='both', labelsize=font_size, direction='in', top=True, right=True, color='#000000',
+                            length=0)
+            ax2.tick_params(axis='both', labelsize=font_size, direction='in', top=True, right=True, color='#000000',
+                            length=0)
+            ax3.tick_params(axis='both', labelsize=font_size, direction='in', top=True, right=True, color='#000000',
+                            length=0)
+
+        print('Attempting To Save...')
+        # plt.tight_layout()
+        plt.savefig('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/' + save_as,dpi=300, rasterized=True)
+        plt.close()
+        # plt.show()
+
+        # import pdb; pdb.set_trace()
+
+    if property_to_sort == 'amplitude':
+
+        print('Plotting Amplitude sort...')
+
+        ampl_min = 3 * stddev
+        ampl_max = 1000 * stddev
+        ampl_grid = np.linspace(ampl_min, ampl_max, 51)
+
+        ampl_slots = []
+        # Iterate over a sequence of numbers
+        for slot_num in range(len(ampl_grid) - 1):
+            # In each iteration, add an empty list to the main list
+            ampl_slots.append([])
+
+        for grid_index in range(1, len(ampl_grid)):
+            for true_index in range(0, len(ampl_true)):
+                if (ampl_true[true_index] > ampl_grid[grid_index - 1]) and (
+                        ampl_true[true_index] <= ampl_grid[grid_index]):
+                    ampl_slots[grid_index - 1].append(true_index)
+
+        font_size = 'small'
+        font_style = 'normal'
+        font_family = 'sans-serif'
+        impulse_max_lim_factor = 0.50
+        xlim_mult = 15. * bin_slice_factor
+
+        fig = plt.figure(figsize=(10, 6), facecolor='#ffffff', dpi=300)
+        for prop in range(len(opt_list)):
+            # print(prop)
+
+            if prop <= 2:
+                plot_bott = 0.57
+                plot_top = 0.98
+                plot_left = 0.05 + 0.27 * prop + 0.05 * prop
+                plot_right = 0.05 + 0.27 * (prop + 1) + 0.05 * prop
+            if prop > 2:
+                plot_bott = 0.06
+                plot_top = 0.48
+                plot_left = 0.05 + 0.27 * (prop - 3) + 0.05 * (prop - 3)
+                plot_right = 0.05 + 0.27 * ((prop - 3) + 1) + 0.05 * (prop - 3)
+            gs1 = fig.add_gridspec(nrows=6, ncols=6, left=plot_left, right=plot_right, top=plot_top, bottom=plot_bott,
+                                   wspace=0, hspace=0)
+            ax1 = fig.add_subplot(gs1[2:6, 0:4])
+            ax2 = fig.add_subplot(gs1[0:2, 0:4], xticklabels=[])  # , sharey=ax1)
+            ax3 = fig.add_subplot(gs1[2:6, 4:6], yticklabels=[])  # , sharex=ax1)
+
+            y_hist, bin_edges = np.histogram(opt_list[prop], bins='auto')
+            #bin_edges = np.arange(np.min(bin_edges), np.max(bin_edges) + 0.5 * np.diff(bin_edges)[0], 0.5 * np.diff(bin_edges)[0])
+            if (prop != 5) and (bin_slice_factor > 1):
+                axis_spacing = np.arange(0, len(bin_edges), 1)
+                if bin_slice_factor == 3:
+                    new_axis_spacing = np.arange(np.min(axis_spacing),np.max(axis_spacing)+1./bin_slice_factor,1./bin_slice_factor)[0:-1]
+                else:
+                    new_axis_spacing = np.arange(np.min(axis_spacing),np.max(axis_spacing)+1./bin_slice_factor,1./bin_slice_factor)
+                bin_edges = np.interp(new_axis_spacing, axis_spacing, bin_edges)
+
+            Z = np.zeros((len(ampl_grid) - 1, len(bin_edges) - 1))
+            for slot_index in range(len(ampl_slots)):
+                y_hist, bin_edges = np.histogram(np.array(opt_list[prop])[ampl_slots[slot_index]], bins=bin_edges)
+                Z[slot_index, :] = y_hist
+
+            row_hist = sum_rows(Z)
+            col_hist1 = sum_cols(Z)
+            cum_hist1 = cum_cols(Z)
+
+            if prop != 5:
+                bin_width = np.diff(bin_edges)[0]
+                where_within = np.where((bin_edges >= -xlim_mult * bin_width) & (bin_edges <= xlim_mult * bin_width))[0]
+                y_hist, bin_edges = np.histogram(opt_list[prop], bins=bin_edges[where_within])
+            if prop == 5:
+                where_within = np.where(bin_edges <= impulse_max_lim_factor * np.max(bin_edges))[0]
+                y_hist, bin_edges = np.histogram(opt_list[prop], bins=bin_edges[where_within])
+
+            col_hist = np.array(col_hist1)[where_within[:-1]]
+            cum_hist = np.array(cum_hist1)[where_within[:-1]]
+
+            Z = np.zeros((len(ampl_grid) - 1, len(bin_edges) - 1))
+            for slot_index in range(len(ampl_slots)):
+                y_hist, bin_edges = np.histogram(np.array(opt_list[prop])[ampl_slots[slot_index]], bins=bin_edges)
+                Z[slot_index, :] = y_hist
+
+            print(len(y_hist))
+
+            # ax = fig.add_subplot(2,3,prop+1)
+            # ax_test.set_title('fit = %0.4f+/-%4f * x + %0.4f+/-%4f' % (slope, slope_err, yint, yint_err))
+            # ax.set_title('Original', fontsize=font_size, style=font_style, family=font_family)
+            if (prop == 0) or (prop == 3):
+                ax1.set_ylabel(r'True Amplitude (F$_{flare}$/F$_{quiescent}$ - 1)', fontsize=font_size, style=font_style,
+                               family=font_family)
+            ax1.set_xlabel(x_label_list[prop], fontsize=font_size, style=font_style, family=font_family)
+
+            X, Y = np.meshgrid(bin_edges[0:-1], ampl_grid[0:-1])
+            p = ax1.pcolor(X, Y, Z, cmap=cm.BuPu, edgecolors='face', vmin=Z.min(), vmax=Z.max(), rasterized=True)
+            # cbaxes = fig.add_axes([])
+            cb = fig.colorbar(p)  # , ticks=linspace(0,abs(Z).max(),10))
+            # if (prop == 2) or (prop == 5):
+            #     cb.set_label(label='Counts', fontsize=font_size, style=font_style, family=font_family)
+            cb.ax.tick_params(labelsize=font_size)  # , style=font_style, family=font_family)
+            # cb.ax.set_yticklabels(np.arange(0,Z.max(),0.1),style=font_style, family=font_family)
+
+            if plot_type == 'cumulative':
+                ax2.bar(np.array(bin_edges[:-1]), cum_hist, width=np.diff(bin_edges), color='None', edgecolor="black", align="edge", rasterized=True)
+            if plot_type == 'sum':
+                #import pdb; pdb.set_trace()
+                ax2.bar(np.array(bin_edges[:-1]), col_hist, width=np.diff(bin_edges), color='None', edgecolor="black", align="edge", rasterized=True)
+            ax3.barh(ampl_grid[:-1], row_hist, height=np.diff(ampl_grid), color='None', edgecolor="black", align="edge", rasterized=True)
+
+            if prop != 5:
+                ax1.plot([0, 0], [np.min(ampl_grid), np.max(ampl_grid)], color='#ff0066', lw=1)
+                if plot_type == 'cumulative':
+                    ax2.plot([0, 0], [0, 1.0], color='#ff0066', lw=1)
+                    ax2.set_ylim([0, 1.0])
+                if plot_type == 'sum':
+                    ax2.plot([0, 0], [0, np.max(col_hist) * 1.10], color='#ff0066', lw=1)
+                    ax2.set_ylim([0, np.max(col_hist) * 1.10])
+
+            ax3.set_ylim([np.min(ampl_grid), np.max(ampl_grid)])
+            ax3.set_xlim([0, np.max(row_hist) * 1.10])
+            ax1.set_ylim([np.min(ampl_grid[0:-1]), np.max(ampl_grid[0:-1])])
+
+            if (prop == 0) or (prop == 1):
+                ax1.set_xlim(np.min(bin_edges), np.max(bin_edges))
+                ax2.set_xlim(np.min(bin_edges), np.max(bin_edges))
+            if (prop == 2) or (prop == 3) or (prop == 4):
+                ax1.set_xlim(np.min(bin_edges), np.max(bin_edges))
+                ax2.set_xlim(np.min(bin_edges), np.max(bin_edges))
+            if prop == 5:
+                ax1.set_xlim(0, impulse_max_lim_factor * np.max(bin_edges))
+                ax2.set_xlim(0, impulse_max_lim_factor * np.max(bin_edges))
+
+            ax1.tick_params(axis='both', labelsize=font_size, direction='in', top=True, right=True, color='#000000',
+                            length=0)
+            ax2.tick_params(axis='both', labelsize=font_size, direction='in', top=True, right=True, color='#000000',
+                            length=0)
+            ax3.tick_params(axis='both', labelsize=font_size, direction='in', top=True, right=True, color='#000000',
+                            length=0)
+
+        print('Attempting To Save...')
+        # plt.tight_layout()
+        plt.savefig(
+            '/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/' + save_as,
+            dpi=300, rasterized=True)
+        plt.close()
+        # plt.show()
+
+        # import pdb; pdb.set_trace()
+
+
+from altaipony.flarelc import FlareLightCurve
+from altaipony import lcio
+
+
+def fit_statistics4(cadence, stddev, set_fixed_amplitude=False, downsample = True, set_lc_cadence = 30, set_test_cadence = 120, bin_slice_factor=1., n_reps = 100):
 
 
     if set_fixed_amplitude == True:
@@ -2024,7 +1858,9 @@ def fit_statistics4(cadence, stddev, set_fixed_amplitude=False, downsample = Tru
 
         for rep in range(n_reps):
 
-            x_synth, y_synth, y_synth_noscatter, flare_window, flare_properties = create_synthetic(cadence, stddev, set_cadence, fixed_amplitude=False, fixed_fwhm=False)  # , fixed_fwhm=True)
+            np.random.seed()
+
+            x_synth, y_synth, y_synth_noscatter, flare_window, flare_properties = create_synthetic(cadence, stddev, set_cadence=set_test_cadence, fixed_amplitude=False, fixed_fwhm=False)  # , fixed_fwhm=True)
 
             print('Generating Flare Statistics...\nRep. ' + str(rep + 1) + ':')
             for w in range(len(flare_window)):
@@ -2034,10 +1870,10 @@ def fit_statistics4(cadence, stddev, set_fixed_amplitude=False, downsample = Tru
 
 
                 if downsample == True:
-                    where_start = np.int(np.floor(np.random.uniform(0, set_cadence+1, 1)))
+                    where_start = np.int(np.floor(np.random.uniform(0, set_lc_cadence+1, 1)))
 
-                    x_downsample = x_synth[where_start::set_cadence]
-                    y_downsample = y_synth[where_start::set_cadence]
+                    x_downsample = x_synth[where_start::int(set_lc_cadence)]
+                    y_downsample = y_synth[where_start::int(set_lc_cadence)]
                     # y_noscatter_downsample = y_synth_noscatter[where_start::15]
                 if downsample == False:
                     x_downsample = x_synth[0::1]
@@ -2056,12 +1892,22 @@ def fit_statistics4(cadence, stddev, set_fixed_amplitude=False, downsample = Tru
                 try:
                     popt, pcov = optimize.curve_fit(aflare1, x_window, y_window, p0=(guess_peak, guess_fwhm, guess_ampl))  # diag=(1./x_window.mean(),1./y_window.mean()))
                 except:
-                    t_peak_cant_fit.append((flare_properties["tpeak"][w] - np.min(x_window))/(np.max(x_window) - np.min(x_window)))
-                    fwhm_cant_fit.append(flare_properties["fwhm"][w])
+
+                    for bep in range(len(x_window)):
+                        if (flare_properties["tpeak"][w] > x_window[bep]) and (flare_properties["tpeak"][w] < x_window[bep+1]):
+                            t_peak_frac = (flare_properties["tpeak"][w] - x_window[bep])/(x_window[bep+1] - x_window[bep])
+                            break
+                        if flare_properties["tpeak"][w] == x_window[bep]:
+                            t_peak_frac = 0
+                            break
+                    # t_peak_cant_fit.append((flare_properties["tpeak"][w] - np.min(x_window))/(np.max(x_window) - np.min(x_window)))
+                    t_peak_cant_fit.append(t_peak_frac)
+                    fwhm_cant_fit.append(flare_properties["fwhm"][w] / np.float(set_lc_cadence))
                     ampl_cant_fit.append(flare_properties["amplitude"][w])
                     impulsive_index_cant_fit.append(flare_properties["amplitude"][w] / flare_properties["fwhm"][w])
                     continue
 
+                # energy and equivalent_duration
                 x_fit = np.linspace(np.min(x_window), np.max(x_window), 5000)
                 y_fit = aflare1(x_fit, *popt)
                 y_true = aflare1(x_fit, flare_properties["tpeak"][w], flare_properties["fwhm"][w], flare_properties["amplitude"][w])
@@ -2083,11 +1929,56 @@ def fit_statistics4(cadence, stddev, set_fixed_amplitude=False, downsample = Tru
                 eq_duration_opt.append((eq_dur - eq_dur_true) / eq_dur_true * 100)
                 energy_opt.append((flare_energy - flare_energy_true) / flare_energy_true * 100)
 
-                if np.mod(w + 1, 100) == 0:
-                    if not os.path.exists('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/All_Amplitudes_' + str(int(set_cadence)) + 'min/'):
-                        os.mkdir('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/All_Amplitudes_' + str(int(set_cadence)) + 'min/')
-                    save_as_test = 'All_Amplitudes_' + str(int(set_cadence)) + 'min/' + str(rep + 1) + '_' + str(w + 1) + '.pdf'
-                    plot_test_fit(x_window, y_window + 1, x_fit, y_fit + 1, y_true + 1, eq_dur, flare_energy, eq_dur_true, flare_energy_true, save_as_test)
+
+                # flare duration
+
+                from altaipony.flarelc import FlareLightCurve
+
+                from altaipony import lcio
+
+                # get_ipython().run_line_magic('matplotlib', 'notebook')
+
+                flc = FlareLightCurve(time=x_window, flux=y_window, flux_err=np.zeros_like(y_window)+1e-10,detrended_flux=y_window,detrended_flux_err=np.zeros_like(y_window)+1e-10)
+                try:
+                    flc = invisible(flc.find_flares()) #capture.output(flc.find_flares(), file='/dev/null') #flc.find_flares()
+                except:
+                    flare_time = []
+                    flare_flux = []
+                    #print(w)
+                    #print(np.max(y_window))
+                    continue
+                #flc.flares.to_csv('flares_' + targ + '.csv', index=False)
+                if len(flc.flares) > 0:
+                    flare_time = flc.time[flc.flares['istart'][0]:flc.flares['istop'][0] + 1] #flc.time[f.istart:f.istop + 1]
+                    #print(flare_time)
+                    flare_flux = flc.flux[flc.flares['istart'][0]:flc.flares['istop'][0] + 1]
+                    #print(flare_flux)
+
+                else:
+                    flare_time = []
+                    flare_flux = []
+
+                #import pdb; pdb.set_trace()
+
+
+                if set_lc_cadence - int(set_lc_cadence) > 0:
+                    is_half = 'yes'
+                else:
+                    is_half = 'no'
+
+
+                if (np.mod(rep + 1, 25) == 0) or (rep == 0):
+                    if np.mod(w + 1, 100) == 0:
+                        if is_half == 'yes':
+                            if not os.path.exists('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/All_Amplitudes_' + str(np.round(set_lc_cadence,1)) + 'min/'):
+                                os.mkdir('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/All_Amplitudes_' + str(np.round(set_lc_cadence,1)) + 'min/')
+                            save_as_test = 'All_Amplitudes_' + str(np.round(set_lc_cadence,1)) + 'min/' + str(rep + 1) + '_' + str(w + 1) + '.pdf'
+                        else:
+                            if not os.path.exists('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/All_Amplitudes_' + str(int(set_lc_cadence)) + 'min/'):
+                                os.mkdir('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/All_Amplitudes_' + str(int(set_lc_cadence)) + 'min/')
+                            save_as_test = 'All_Amplitudes_' + str(int(set_lc_cadence)) + 'min/' + str(rep + 1) + '_' + str(w + 1) + '.pdf'
+
+                        plot_test_fit(x_window, y_window + 1, x_fit, y_fit + 1, y_true + 1, flare_time, flare_flux + 1, eq_dur, flare_energy, eq_dur_true, flare_energy_true, save_as_test)
 
                 t_peak_opt.append((popt[0] - flare_properties["tpeak"][w]))
                 fwhm_opt.append((popt[1] - flare_properties["fwhm"][w]) / flare_properties["fwhm"][w] * 100)
@@ -2099,30 +1990,377 @@ def fit_statistics4(cadence, stddev, set_fixed_amplitude=False, downsample = Tru
                 impulsive_index_true.append(flare_properties["amplitude"][w] / flare_properties["fwhm"][w])
 
                 if np.mod(w + 1, 100) == 0:
-                    save_as_hist = 'All_Amplitudes_' + str(int(set_cadence)) + 'min/fit_stat_hist_all_amplitudes.pdf'
-                    plot_stat_hist4(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, impulsive_index_true, save_as_hist)
+                    if is_half == 'yes':
+                        save_as_hist = 'All_Amplitudes_' + str(np.round(set_lc_cadence,1)) + 'min/fit_stat_hist.pdf'
+                    else:
+                        save_as_hist = 'All_Amplitudes_' + str(int(set_lc_cadence)) + 'min/fit_stat_hist.pdf'
+                    plot_stat_hist4(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, impulsive_index_true, bin_slice_factor, save_as_hist)
 
-                    save_as_hist_2D_fwhm = 'All_Amplitudes_' + str(int(set_cadence)) + 'min/fit_stat_hist_2D_fwhm_sum.pdf'
-                    sort_property6(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, t_peak_true, fwhm_true,
-                                  ampl_true, eq_duration_true, energy_true, impulsive_index_true, 'sum', save_as_hist_2D_fwhm,
-                                  stddev, set_cadence, property_to_sort='fwhm')
-                    save_as_hist_2D_fwhm = 'All_Amplitudes_' + str(int(set_cadence)) + 'min/fit_stat_hist_2D_fwhm_cum.pdf'
-                    sort_property6(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, t_peak_true, fwhm_true,
-                                   ampl_true, eq_duration_true, energy_true, impulsive_index_true, 'cumulative',
-                                   save_as_hist_2D_fwhm,
-                                   stddev, set_cadence, property_to_sort='fwhm')
-                    save_as_hist_2D_ampl = 'All_Amplitudes_' + str(int(set_cadence)) + 'min/fit_stat_hist_2D_ampl_sum.pdf'
-                    sort_property6(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, t_peak_true, fwhm_true,
-                                   ampl_true, eq_duration_true, energy_true, impulsive_index_true, 'sum', save_as_hist_2D_ampl,
-                                   stddev, set_cadence, property_to_sort='amplitude')
-                    save_as_hist_2D_ampl = 'All_Amplitudes_' + str(int(set_cadence)) + 'min/fit_stat_hist_2D_ampl_cum.pdf'
-                    sort_property6(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, t_peak_true, fwhm_true,
-                                   ampl_true, eq_duration_true, energy_true, impulsive_index_true, 'cumulative',
-                                   save_as_hist_2D_ampl, stddev, set_cadence, property_to_sort='amplitude')
+                    if np.mod(rep + 1, n_reps) == 0:
+                        if is_half == 'yes':
+                            save_as_hist_2D_fwhm = 'All_Amplitudes_' + str(np.round(set_lc_cadence,1)) + 'min/fit_stat_hist_2D_fwhm_sum.pdf'
+                        else:
+                            save_as_hist_2D_fwhm = 'All_Amplitudes_' + str(int(set_lc_cadence)) + 'min/fit_stat_hist_2D_fwhm_sum.pdf'
+                        sort_property6(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, t_peak_true, fwhm_true,
+                                      ampl_true, eq_duration_true, energy_true, impulsive_index_true, 'sum', save_as_hist_2D_fwhm,
+                                      stddev, set_lc_cadence, set_test_cadence, bin_slice_factor,  property_to_sort='fwhm')
+                        # if (rep > 0) and (np.mod(rep + 1, n_reps) == 0): # int(0.5*n_reps)) == 0):
+                        #     save_as_hist_2D_fwhm = 'All_Amplitudes_' + str(int(set_lc_cadence)) + 'min/fit_stat_hist_2D_fwhm_cum.pdf'
+                        #     sort_property6(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, t_peak_true, fwhm_true,
+                        #                    ampl_true, eq_duration_true, energy_true, impulsive_index_true, 'cumulative',
+                        #                    save_as_hist_2D_fwhm, stddev, set_lc_cadence, set_test_cadence, bin_slice_factor,  property_to_sort='fwhm')
+                        # save_as_hist_2D_ampl = 'All_Amplitudes_' + str(int(set_lc_cadence)) + 'min/fit_stat_hist_2D_ampl_sum.pdf'
+                        # sort_property6(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, t_peak_true, fwhm_true,
+                        #                ampl_true, eq_duration_true, energy_true, impulsive_index_true, 'sum', save_as_hist_2D_ampl,
+                        #                stddev, set_lc_cadence, set_test_cadence, bin_slice_factor,  property_to_sort='amplitude')
+                        # if (rep > 0) and (np.mod(rep + 1, n_reps) == 0): # int(0.5*n_reps)) == 0):
+                        #     save_as_hist_2D_ampl = 'All_Amplitudes_' + str(int(set_lc_cadence)) + 'min/fit_stat_hist_2D_ampl_cum.pdf'
+                        #     sort_property6(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, t_peak_true, fwhm_true,
+                        #                    ampl_true, eq_duration_true, energy_true, impulsive_index_true, 'cumulative',
+                        #                    save_as_hist_2D_ampl, stddev, set_lc_cadence, set_test_cadence, bin_slice_factor, property_to_sort='amplitude')
 
                     if len(fwhm_cant_fit) > 0:
-                        save_as_cant_fit = 'All_Amplitudes_' + str(int(set_cadence)) + 'min/fit_stat_hist_cant_fit.pdf'
+                        if is_half == 'yes':
+                            save_as_cant_fit = 'All_Amplitudes_' + str(np.round(set_lc_cadence,1)) + 'min/fit_stat_hist_cant_fit.pdf'
+                        else:
+                            save_as_cant_fit = 'All_Amplitudes_' + str(int(set_lc_cadence)) + 'min/fit_stat_hist_cant_fit.pdf'
                         plot_hist_cant_fit(t_peak_cant_fit, fwhm_cant_fit, ampl_cant_fit, impulsive_index_cant_fit, save_as=save_as_cant_fit)
+
+
+        # save_as_hist = 'All_Amplitudes/fit_stat_hist_all_amplitudes.pdf'
+        # plot_stat_hist3(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, impulsive_index_true, save_as_hist)
+        #
+        # save_as_hist_2D = 'All_Amplitudes/fit_stat_hist_2D.pdf'
+        # sort_property2(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, t_peak_true, fwhm_true,
+        #               ampl_true, eq_duration_true, energy_true, impulsive_index_true, save_as_hist_2D, property_to_sort='fwhm')
+        # import pdb;pdb.set_trace()
+def fit_statistics5(cadence, set_fixed_amplitude=False, downsample = True, set_lc_cadence = 30, set_test_cadence = 120, bin_slice_factor=1., n_reps = 100):
+
+
+    if set_fixed_amplitude == True:
+        test_amplitudes = [3,5,10,100,250,500,750,1000,1200,1500]
+
+        for s in range(len(test_amplitudes)):
+
+            t_peak_opt = []
+            fwhm_opt = []
+            ampl_opt = []
+            eq_duration_opt = []
+            energy_opt = []
+
+            t_peak_true = []
+            fwhm_true = []
+            ampl_true = []
+            eq_duration_true = []
+            energy_true = []
+
+            for rep in range(n_reps):
+
+                x_synth, y_synth, y_synth_noscatter, flare_window, flare_properties = create_synthetic(cadence, stddev, given_amplitude=test_amplitudes[s],fixed_amplitude=True,fixed_fwhm=False) #, fixed_fwhm=True)
+
+                print('Generating Statistics for Amplitude ' + str(test_amplitudes[s]) + '...\nRep. ' + str(rep+1) + ':')
+                for w in range(len(flare_window)):
+
+                    # if np.mod(w+1,100) == 0:
+                    #     print(w+1)
+
+                    t_peak_true.append(flare_properties["tpeak"][w])
+                    fwhm_true.append(flare_properties["fwhm"][w])
+                    ampl_true.append(flare_properties["amplitude"][w])
+                    impulsive_index_true.append(flare_properties["amplitude"][w] / flare_properties["fwhm"][w])
+
+                    if downsample == True:
+                        where_start = np.int(np.floor(np.random.uniform(0, 16, 1)))
+
+                        x_downsample = x_synth[where_start::15]
+                        y_downsample = y_synth[where_start::15]
+                        # y_noscatter_downsample = y_synth_noscatter[where_start::15]
+                    if downsample == False:
+                        x_downsample = x_synth[0::1]
+                        y_downsample = y_synth[0::1]
+                        # y_noscatter_downsample = y_synth_noscatter[0::1]
+
+                    window = np.where((x_downsample >= flare_window[w][0]) & (x_downsample <= flare_window[w][1]))[0]
+                    x_window = x_downsample[window]
+                    y_window = y_downsample[window]
+                    # y_noscatter_window = y_noscatter_downsample[window]
+
+                    guess_peak = x_window[np.where(y_window == np.max(y_window))[0][0]]
+                    guess_fwhm = 0.01
+                    guess_ampl = y_window[np.where(y_window == np.max(y_window))[0][0]]
+
+                    try:
+                        popt, pcov = optimize.curve_fit(aflare1, x_window, y_window, p0=(guess_peak, guess_fwhm, guess_ampl)) # diag=(1./x_window.mean(),1./y_window.mean()))
+                    except:
+                        continue
+
+                    x_fit = np.linspace(np.min(x_window), np.max(x_window), 5000)
+                    y_fit = aflare1(x_fit, *popt)
+                    y_true = aflare1(x_fit, flare_properties["tpeak"][w], flare_properties["fwhm"][w], flare_properties["amplitude"][w])
+
+                    L_star = 1.2  # solar luminosity
+                    L_star *= 3.827e33  # convert to erg/s
+
+                    eq_dur = np.trapz(y_fit, x=x_fit)
+                    eq_dur *= 86400  # convert days to seconds
+                    flare_energy = L_star * eq_dur
+
+                    eq_dur_true = np.trapz(y_true, x=x_fit)
+                    eq_dur_true *= (24*60*60)  # convert days to seconds
+                    flare_energy_true = L_star * eq_dur_true
+
+                    eq_duration_true.append(eq_dur_true)
+                    energy_true.append(flare_energy_true)
+
+                    eq_duration_opt.append((eq_dur - eq_dur_true)/eq_dur_true*100)
+                    energy_opt.append((flare_energy - flare_energy_true)/flare_energy_true*100)
+
+                    if np.mod(w+1,100) == 0:
+                        if not os.path.exists('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/Amp_' + str(test_amplitudes[s])):
+                            os.mkdir('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/Amp_' + str(test_amplitudes[s]))
+                        save_as_test = 'Amp_' + str(test_amplitudes[s]) + '/' + str(rep+1) + '_' + str(w+1) + '.pdf'
+                        plot_test_fit(x_window,y_window+1,x_fit,y_fit+1,y_true+1,eq_dur,flare_energy,eq_dur_true,flare_energy_true,save_as_test)
+
+                    t_peak_opt.append((popt[0] - flare_properties["tpeak"][w]))
+                    fwhm_opt.append((popt[1] - flare_properties["fwhm"][w])/flare_properties["tpeak"][w]*100)
+                    ampl_opt.append((popt[2] - flare_properties["amplitude"][w])/flare_properties["tpeak"][w]*100)
+
+                    if np.mod(w + 1, 100) == 0:
+                        save_as_hist = 'Amp_' + str(test_amplitudes[s]) + '/fit_stat_hist_ampl_' + str(test_amplitudes[s]) + '.pdf'
+                        # plot_stat_hist(t_peak_opt, fwhm_opt, ampl_opt, fwhm_true, ampl_true, save_as_hist)
+                        plot_stat_hist2(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, impulsive_index_true, downsample, save_as_hist)
+
+            save_as_hist = 'Amp_' + str(test_amplitudes[s]) + '/fit_stat_hist_ampl_' + str(test_amplitudes[s]) + '.pdf'
+            #plot_stat_hist(t_peak_opt, fwhm_opt, ampl_opt, fwhm_true, ampl_true, save_as_hist)
+            plot_stat_hist2(t_peak_opt,fwhm_opt,ampl_opt,eq_duration_opt,energy_opt,impulsive_index_true,downsample,save_as_hist)
+            # save_as_cum = 'Amp_' + str(test_amplitudes[s]) + '/fit_stat_cum_ampl_' + str(test_amplitudes[s]) + '.pdf'
+            # plot_stat_cum(t_peak_opt, fwhm_opt, ampl_opt, fwhm_true, ampl_true, save_as_cum)
+            # import pdb;pdb.set_trace()
+    if set_fixed_amplitude == False:
+
+        t_peak_opt = []
+        fwhm_opt = []
+        ampl_opt = []
+        eq_duration_opt = []
+        energy_opt = []
+
+        t_peak_true = []
+        fwhm_true = []
+        ampl_true = []
+        eq_duration_true = []
+        energy_true = []
+        impulsive_index_true = []
+
+        t_peak_cant_fit = []
+        fwhm_cant_fit = []
+        ampl_cant_fit = []
+        impulsive_index_cant_fit = []
+
+        t_peak_cant_find = []
+        fwhm_cant_find = []
+        ampl_cant_find = []
+        impulsive_index_cant_find = []
+
+        for rep in range(n_reps):
+
+            if (np.mod(rep+1,250) == 0) or (rep == 0):
+                print('Generating Flare Statistics...\nCad. ' + str(np.round(set_lc_cadence, 1)) +'    Rep. ' + str(rep + 1))
+                print(' ')
+
+            x_synth, y_synth, y_synth_noscatter, flare_properties = create_single_synthetic(cadence, set_cadence=set_test_cadence)
+
+
+            if downsample == True:
+                where_start = np.int(np.floor(np.random.uniform(0, set_lc_cadence+1, 1)))
+
+                x_flare = x_synth[where_start::int(set_lc_cadence)]
+                y_flare = y_synth[where_start::int(set_lc_cadence)]
+                # y_noscatter_downsample = y_synth_noscatter[where_start::15]
+            if downsample == False:
+                x_flare = x_synth[0::1]
+                y_flare = y_synth[0::1]
+                # y_noscatter_downsample = y_synth_noscatter[0::1]
+
+            guess_peak = x_flare[np.where(y_flare == np.max(y_flare))[0][0]]
+            guess_fwhm = 0.01
+            guess_ampl = y_flare[np.where(y_flare == np.max(y_flare))[0][0]]
+
+            try:
+                popt, pcov = optimize.curve_fit(aflare1, x_flare, y_flare, p0=(guess_peak, guess_fwhm, guess_ampl))  # diag=(1./x_window.mean(),1./y_window.mean()))
+            except:
+
+                for bep in range(len(x_flare)):
+                    if (flare_properties["tpeak"][0] > x_flare[bep]) and (flare_properties["tpeak"][0] < x_flare[bep+1]):
+                        t_peak_frac = (flare_properties["tpeak"][0] - x_flare[bep])/(x_flare[bep+1] - x_flare[bep])
+                        break
+                    if flare_properties["tpeak"][0] == x_flare[bep]:
+                        t_peak_frac = 0
+                        break
+                # t_peak_cant_fit.append((flare_properties["tpeak"][w] - np.min(x_window))/(np.max(x_window) - np.min(x_window)))
+                t_peak_cant_fit.append(t_peak_frac)
+                fwhm_cant_fit.append(flare_properties["fwhm"][0] / np.float(set_lc_cadence))
+                ampl_cant_fit.append(flare_properties["amplitude"][0])
+                impulsive_index_cant_fit.append(flare_properties["amplitude"][0] / flare_properties["fwhm"][0])
+                continue
+
+
+            # flare duration
+            flc = FlareLightCurve(time=x_flare, flux=y_flare, flux_err=np.zeros_like(y_flare)+1e-4,detrended_flux=y_flare,detrended_flux_err=np.zeros_like(y_flare)+1e-4)
+            try:
+                flc = flc.find_flares()
+            except:
+                flare_time = []
+                flare_flux = []
+                continue
+            #flc.flares.to_csv('flares_' + targ + '.csv', index=False)
+            if len(flc.flares) > 0:
+                flare_time = flc.time[flc.flares['istart'][0]-1:flc.flares['istop'][0] + 1] #flc.time[f.istart:f.istop + 1]
+                flare_flux = flc.flux[flc.flares['istart'][0]-1:flc.flares['istop'][0] + 1]
+
+            else:
+                flare_time = []
+                flare_flux = []
+
+            #import pdb; pdb.set_trace()
+
+            # energy and equivalent_duration
+            if len(flare_time) > 0:
+                x_fit = np.linspace(np.min(flare_time), np.max(flare_time), 2500)
+                y_fit = aflare1(x_fit, *popt)
+                y_true = aflare1(x_fit, flare_properties["tpeak"][0], flare_properties["fwhm"][0], flare_properties["amplitude"][0])
+            else:
+                x_fit = np.linspace(np.min(x_flare), np.max(x_flare), 5000)
+                y_fit = aflare1(x_fit, *popt)
+                y_true = aflare1(x_fit, flare_properties["tpeak"][0], flare_properties["fwhm"][0], flare_properties["amplitude"][0])
+
+                for bep in range(len(x_flare)):
+                    if (flare_properties["tpeak"][0] > x_flare[bep]) and (flare_properties["tpeak"][0] < x_flare[bep+1]):
+                        t_peak_frac = (flare_properties["tpeak"][0] - x_flare[bep])/(x_flare[bep+1] - x_flare[bep])
+                        break
+                    if flare_properties["tpeak"][0] == x_flare[bep]:
+                        t_peak_frac = 0
+                        break
+
+                t_peak_cant_find.append(t_peak_frac)
+                fwhm_cant_find.append(flare_properties["fwhm"][0] / np.float(set_lc_cadence))
+                ampl_cant_find.append(flare_properties["amplitude"][0])
+                impulsive_index_cant_find.append(flare_properties["amplitude"][0] / flare_properties["fwhm"][0])
+
+            L_star = 1.2  # solar luminosity
+            L_star *= 3.827e33  # convert to erg/s
+
+            eq_dur = np.trapz(y_fit, x=x_fit)
+            eq_dur *= 86400  # convert days to seconds
+            flare_energy = L_star * eq_dur
+
+            eq_dur_true = np.trapz(y_true, x=x_fit)
+            eq_dur_true *= (24 * 60 * 60)  # convert days to seconds
+            flare_energy_true = L_star * eq_dur_true
+
+            eq_duration_true.append(eq_dur_true)
+            energy_true.append(flare_energy_true)
+
+            eq_duration_opt.append((eq_dur - eq_dur_true) / eq_dur_true * 100)
+            energy_opt.append((flare_energy - flare_energy_true) / flare_energy_true * 100)
+
+            # for the plot
+            x_fit = np.linspace(np.min(x_flare), np.max(x_flare), 5000)
+            y_fit = aflare1(x_fit, *popt)
+            y_true = aflare1(x_fit, flare_properties["tpeak"][0], flare_properties["fwhm"][0], flare_properties["amplitude"][0])
+
+
+            if set_lc_cadence - int(set_lc_cadence) > 0:
+                is_half = 'yes'
+            else:
+                is_half = 'no'
+
+
+            if (np.mod(rep + 1, 2500) == 0) or (rep == 0):
+                if is_half == 'yes':
+                    if not os.path.exists('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/All_Amplitudes_' + str(np.round(set_lc_cadence,1)) + 'min/'):
+                        os.mkdir('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/All_Amplitudes_' + str(np.round(set_lc_cadence,1)) + 'min/')
+                    save_as_test = 'All_Amplitudes_' + str(np.round(set_lc_cadence,1)) + 'min/' + str(rep + 1) + '.pdf'
+                else:
+                    if not os.path.exists('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/All_Amplitudes_' + str(int(set_lc_cadence)) + 'min/'):
+                        os.mkdir('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/All_Amplitudes_' + str(int(set_lc_cadence)) + 'min/')
+                    save_as_test = 'All_Amplitudes_' + str(int(set_lc_cadence)) + 'min/' + str(rep + 1) + '.pdf'
+
+                try:
+                    plot_test_fit(x_flare, y_flare + 1, x_fit, y_fit + 1, y_true + 1, flare_time, flare_flux + 1, eq_dur, flare_energy, eq_dur_true, flare_energy_true, save_as_test)
+                except:
+                    continue
+
+            if (np.mod(rep + 1, 2500) == 0) or (rep == 0):
+                if not os.path.exists('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/For_Animation/'):
+                    os.mkdir('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/For_Animation/')
+
+
+            t_peak_opt.append((popt[0] - flare_properties["tpeak"][0]))
+            fwhm_opt.append((popt[1] - flare_properties["fwhm"][0]) / flare_properties["fwhm"][0] * 100)
+            ampl_opt.append((popt[2] - flare_properties["amplitude"][0]) / flare_properties["amplitude"][0] * 100)
+
+            t_peak_true.append(flare_properties["tpeak"][0])
+            fwhm_true.append(flare_properties["fwhm"][0])
+            ampl_true.append(flare_properties["amplitude"][0])
+            impulsive_index_true.append(flare_properties["amplitude"][0] / flare_properties["fwhm"][0])
+
+            if np.mod(rep + 1, 1000) == 0:
+                if is_half == 'yes':
+                    # save_as_hist = 'All_Amplitudes_' + str(np.round(set_lc_cadence,1)) + 'min/fit_stat_hist.pdf'
+                    remainder = set_lc_cadence - int(set_lc_cadence)
+                    save_as_hist = 'All_Amplitudes_' + str(int(set_lc_cadence)) + '+' + str(remainder) + 'min/fit_stat_hist.pdf'
+                else:
+                    save_as_hist = 'All_Amplitudes_' + str(int(set_lc_cadence)) + 'min/fit_stat_hist.pdf'
+                plot_stat_hist4(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, impulsive_index_true, bin_slice_factor, save_as_hist)
+
+                if np.mod(rep + 1, n_reps) == 0:
+                    if is_half == 'yes':
+                        #save_as_hist_2D_fwhm = 'All_Amplitudes_' + str(np.round(set_lc_cadence,1)) + 'min/fit_stat_hist_2D_fwhm_sum.pdf'
+                        remainder = set_lc_cadence - int(set_lc_cadence)
+                        save_as_hist_2D_fwhm = 'All_Amplitudes_' + str(int(set_lc_cadence)) + '+' + str(remainder) + 'min/fit_stat_hist_2D_fwhm_sum.pdf'
+                    else:
+                        save_as_hist_2D_fwhm = 'All_Amplitudes_' + str(int(set_lc_cadence)) + 'min/fit_stat_hist_2D_fwhm_sum.pdf'
+                    sort_property6(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, t_peak_true, fwhm_true,
+                                  ampl_true, eq_duration_true, energy_true, impulsive_index_true, 'sum', save_as_hist_2D_fwhm,
+                                  stddev, set_lc_cadence, set_test_cadence, bin_slice_factor,  property_to_sort='fwhm')
+                if np.mod(rep + 1, n_reps) == 0:
+                    if is_half == 'yes':
+                        remainder = set_lc_cadence - int(set_lc_cadence)
+                        save_as_hist_2D_fwhm = 'For_Animation/fit_stat_hist_2D_fwhm_sum_' + str(int(set_lc_cadence)) + '+' + str(remainder) + '.pdf'
+                    else:
+                        save_as_hist_2D_fwhm = 'For_Animation/fit_stat_hist_2D_fwhm_sum_' + str(int(set_lc_cadence)) + '.pdf'
+                    sort_property6(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, t_peak_true, fwhm_true,
+                                   ampl_true, eq_duration_true, energy_true, impulsive_index_true, 'sum', save_as_hist_2D_fwhm,
+                                   stddev, set_lc_cadence, set_test_cadence, bin_slice_factor, property_to_sort='fwhm')
+                    # if (rep > 0) and (np.mod(rep + 1, n_reps) == 0): # int(0.5*n_reps)) == 0):
+                    #     save_as_hist_2D_fwhm = 'All_Amplitudes_' + str(int(set_lc_cadence)) + 'min/fit_stat_hist_2D_fwhm_cum.pdf'
+                    #     sort_property6(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, t_peak_true, fwhm_true,
+                    #                    ampl_true, eq_duration_true, energy_true, impulsive_index_true, 'cumulative',
+                    #                    save_as_hist_2D_fwhm, stddev, set_lc_cadence, set_test_cadence, bin_slice_factor,  property_to_sort='fwhm')
+                    # save_as_hist_2D_ampl = 'All_Amplitudes_' + str(int(set_lc_cadence)) + 'min/fit_stat_hist_2D_ampl_sum.pdf'
+                    # sort_property6(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, t_peak_true, fwhm_true,
+                    #                ampl_true, eq_duration_true, energy_true, impulsive_index_true, 'sum', save_as_hist_2D_ampl,
+                    #                stddev, set_lc_cadence, set_test_cadence, bin_slice_factor,  property_to_sort='amplitude')
+                    # if (rep > 0) and (np.mod(rep + 1, n_reps) == 0): # int(0.5*n_reps)) == 0):
+                    #     save_as_hist_2D_ampl = 'All_Amplitudes_' + str(int(set_lc_cadence)) + 'min/fit_stat_hist_2D_ampl_cum.pdf'
+                    #     sort_property6(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, energy_opt, t_peak_true, fwhm_true,
+                    #                    ampl_true, eq_duration_true, energy_true, impulsive_index_true, 'cumulative',
+                    #                    save_as_hist_2D_ampl, stddev, set_lc_cadence, set_test_cadence, bin_slice_factor, property_to_sort='amplitude')
+
+                if len(fwhm_cant_fit) > 0:
+                    if is_half == 'yes':
+                        save_as_cant_fit = 'All_Amplitudes_' + str(np.round(set_lc_cadence,1)) + 'min/fit_stat_hist_cant_fit.pdf'
+                    else:
+                        save_as_cant_fit = 'All_Amplitudes_' + str(int(set_lc_cadence)) + 'min/fit_stat_hist_cant_fit.pdf'
+                    plot_hist_cant_fit(t_peak_cant_fit, fwhm_cant_fit, ampl_cant_fit, impulsive_index_cant_fit, save_as=save_as_cant_fit)
+
+                if len(fwhm_cant_find) > 0:
+                    if is_half == 'yes':
+                        save_as_cant_find = 'All_Amplitudes_' + str(np.round(set_lc_cadence, 1)) + 'min/fit_stat_hist_cant_find.pdf'
+                    else:
+                        save_as_cant_find = 'All_Amplitudes_' + str(int(set_lc_cadence)) + 'min/fit_stat_hist_cant_find.pdf'
+                    plot_hist_cant_find(t_peak_cant_find, fwhm_cant_find, ampl_cant_find, impulsive_index_cant_find, save_as=save_as_cant_find)
+
 
 
         # save_as_hist = 'All_Amplitudes/fit_stat_hist_all_amplitudes.pdf'
@@ -2134,142 +2372,6 @@ def fit_statistics4(cadence, stddev, set_fixed_amplitude=False, downsample = Tru
         # import pdb;pdb.set_trace()
 
 
-def sort_property(t_peak_opt,fwhm_opt,ampl_opt,eq_duration_opt,flare_energy_opt,t_peak_true,fwhm_true,ampl_true,eq_duration_true,flare_energy_true,impulsiveness,save_as,property_to_sort='fwhm'):
-
-    opt_list = [t_peak_opt,fwhm_opt,ampl_opt,eq_duration_opt,flare_energy_opt]
-
-    if property_to_sort == 'fwhm':
-
-        fwhm_min = 0.5*(1./60.)*(1./24.)
-        fwhm_max = 30.*(1./60.)*(1./24.)
-        fwhm_grid = np.linspace(fwhm_min, fwhm_max, 51)
-
-        fwhm_slots = []
-        # Iterate over a sequence of numbers
-        for slot_num in range(len(fwhm_grid)-1):
-            # In each iteration, add an empty list to the main list
-            fwhm_slots.append([])
-
-        for grid_index in range(1,len(fwhm_grid)):
-            for true_index in range(0,len(fwhm_true)):
-                if (fwhm_true[true_index] > fwhm_grid[grid_index-1]) and (fwhm_true[true_index] <= fwhm_grid[grid_index]):
-                    fwhm_slots[grid_index-1].append(true_index)
-
-        #fwhm_opt = fwhm_opt*24*60
-
-
-
-        y_hist, bin_edges = np.histogram(fwhm_opt, bins='fd')
-        Z = np.zeros((len(fwhm_grid)-1, len(bin_edges)-1))
-
-        for slot_index in range(len(fwhm_slots)):
-            y_hist, bin_edges = np.histogram(np.array(fwhm_opt)[fwhm_slots[slot_index]], bins=bin_edges)
-            Z[slot_index, :] = y_hist
-
-        font_size = 'small'
-        font_style = 'normal'
-        font_family = 'sans-serif'
-
-        fig = plt.figure(num=None, figsize=(6, 5), facecolor='w', dpi=135)
-        ax = fig.add_subplot(111)
-        # ax_test.set_title('fit = %0.4f+/-%4f * x + %0.4f+/-%4f' % (slope, slope_err, yint, yint_err))
-        # ax.set_title('Original', fontsize=font_size, style=font_style, family=font_family)
-        ax.set_ylabel('FWHM (min)', fontsize=font_size, style=font_style, family=font_family)
-        ax.set_xlabel('% Difference from True FWHM', fontsize=font_size, style=font_style, family=font_family)
-        #ax.set_ylim([min(phase_list), max(phase_list)])
-        bin_width = np.diff(bin_edges)[0]
-        xlim_mult = 10.
-        ax.set_xlim(-xlim_mult * bin_width, xlim_mult * bin_width)
-        # mx = max(Yin)
-        # ax.set_xticks((2,4,6,8,10,12,14,16,18,20,22,24,26,28,30))
-        X, Y = np.meshgrid(bin_edges[0:-1] + 0.5*np.diff(bin_edges), fwhm_grid[0:-1]*24*60)
-        p = ax.pcolor(X, Y, Z, cmap=cm.bone, edgecolors='face', vmin=Z.min(), vmax=Z.max())
-        # cbaxes = fig.add_axes([])
-        cb = fig.colorbar(p)  # , ticks=linspace(0,abs(Z).max(),10))
-        cb.set_label(label='Counts', fontsize=font_size, style=font_style, family=font_family)
-        # cb.ax.set_yticklabels(np.arange(0,Z.max(),0.1),style=font_style, family=font_family)
-        cb.ax.tick_params(labelsize=font_size)  # , style=font_style, family=font_family)
-
-        ax.tick_params(axis='both', labelsize=font_size, direction='in', top=True, right=True, color='#ffffff')
-
-        plt.tight_layout()
-        plt.savefig('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/' + save_as, dpi=300)
-        plt.close()
-        # plt.show()
-
-        #import pdb; pdb.set_trace()
-def sort_property2(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, flare_energy_opt, t_peak_true, fwhm_true, ampl_true, eq_duration_true, flare_energy_true, impulsiveness, save_as, property_to_sort='fwhm'):
-
-    opt_list = [np.array(t_peak_opt)*24*60, fwhm_opt, ampl_opt, eq_duration_opt, flare_energy_opt, impulsiveness]
-    true_list = [t_peak_true, fwhm_true, ampl_true, eq_duration_true, flare_energy_true]
-    x_label_list = ['Difference From True Peak Time (min)','% Difference from True FWHM',
-                    '% Difference from True Amplitude','% Difference from True Equivalent Duration',
-                    '% Difference from True Flare Energy', 'Impulsive Index']
-
-    if property_to_sort == 'fwhm':
-
-        fwhm_min = 0.5 * (1. / 60.) * (1. / 24.)
-        fwhm_max = 30. * (1. / 60.) * (1. / 24.)
-        fwhm_grid = np.linspace(fwhm_min, fwhm_max, 51)
-
-        fwhm_slots = []
-        # Iterate over a sequence of numbers
-        for slot_num in range(len(fwhm_grid) - 1):
-            # In each iteration, add an empty list to the main list
-            fwhm_slots.append([])
-
-        for grid_index in range(1, len(fwhm_grid)):
-            for true_index in range(0, len(fwhm_true)):
-                if (fwhm_true[true_index] > fwhm_grid[grid_index - 1]) and (fwhm_true[true_index] <= fwhm_grid[grid_index]):
-                    fwhm_slots[grid_index - 1].append(true_index)
-
-        font_size = 'small'
-        font_style = 'normal'
-        font_family = 'sans-serif'
-
-        fig = plt.figure(figsize=(10, 5), facecolor='#000000') #, dpi=300)
-        for prop in range(len(opt_list)):
-
-            y_hist, bin_edges = np.histogram(opt_list[prop], bins='fd')
-            Z = np.zeros((len(fwhm_grid) - 1, len(bin_edges) - 1))
-
-            for slot_index in range(len(fwhm_slots)):
-                y_hist, bin_edges = np.histogram(np.array(opt_list[prop])[fwhm_slots[slot_index]], bins=bin_edges)
-                Z[slot_index, :] = y_hist
-
-            ax = fig.add_subplot(2,3,prop+1)
-            # ax_test.set_title('fit = %0.4f+/-%4f * x + %0.4f+/-%4f' % (slope, slope_err, yint, yint_err))
-            # ax.set_title('Original', fontsize=font_size, style=font_style, family=font_family)
-            if (prop == 0) or (prop == 3):
-                ax.set_ylabel('FWHM (min)', fontsize=font_size, style=font_style, family=font_family)
-            ax.set_xlabel(x_label_list[prop], fontsize=font_size, style=font_style, family=font_family)
-            ax.set_ylim([np.min(fwhm_grid[0:-1]*24*60), np.max(fwhm_grid[0:-1]*24*60)])
-            bin_width = np.diff(bin_edges)[0]
-            xlim_mult = 20.
-            if prop == 5:
-                ax.set_xlim(0, np.max(bin_edges))
-            else:
-                #ax.set_xlim(np.min(bin_edges), np.max(bin_edges))
-                ax.set_xlim(-xlim_mult * bin_width, xlim_mult * bin_width)
-            # mx = max(Yin)
-            # ax.set_xticks((2,4,6,8,10,12,14,16,18,20,22,24,26,28,30))
-            X, Y = np.meshgrid(bin_edges[0:-1] + 0.5 * np.diff(bin_edges), fwhm_grid[0:-1] * 24 * 60)
-            p = ax.pcolor(X, Y, Z, cmap=cm.bone, edgecolors='face', vmin=Z.min(), vmax=Z.max())
-            # cbaxes = fig.add_axes([])
-            cb = fig.colorbar(p)  # , ticks=linspace(0,abs(Z).max(),10))
-            cb.set_label(label='Counts', fontsize=font_size, style=font_style, family=font_family)
-            if prop != 5:
-                ax.plot([0,0],[np.min(fwhm_grid*24*60),np.max(fwhm_grid*24*60)], '--', color='red',lw=1)
-            # cb.ax.set_yticklabels(np.arange(0,Z.max(),0.1),style=font_style, family=font_family)
-            cb.ax.tick_params(labelsize=font_size)  # , style=font_style, family=font_family)
-            ax.tick_params(axis='both', labelsize=font_size, direction='in', top=True, right=True, color='#ffffff')
-
-        plt.tight_layout()
-        plt.savefig('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/' + save_as,dpi=300)
-        plt.close()
-        # plt.show()
-
-        # import pdb; pdb.set_trace()
 def test_plot2():
     fig = plt.figure(figsize=(10, 6), facecolor='#ffffff') #, constrained_layout=False)
 
@@ -2320,738 +2422,9 @@ def cum_cols(Z_2D):
         col_cums.append(np.sum(col_tots)/np.sum(Z_2D))
     return col_cums
 
-def sort_property3(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, flare_energy_opt, t_peak_true, fwhm_true, ampl_true, eq_duration_true, flare_energy_true, impulsiveness, save_as, property_to_sort='fwhm'):
-
-    opt_list = [np.array(t_peak_opt)*24*60, fwhm_opt, ampl_opt, eq_duration_opt, flare_energy_opt, impulsiveness]
-    true_list = [t_peak_true, fwhm_true, ampl_true, eq_duration_true, flare_energy_true]
-    x_label_list = ['Difference From True Peak Time (min)','% Difference from True FWHM',
-                    '% Difference from True Amplitude','% Difference from True Equivalent Duration',
-                    '% Difference from True Flare Energy', 'Impulsive Index']
-
-    if property_to_sort == 'fwhm':
-
-        fwhm_min = 0.5 * (1. / 60.) * (1. / 24.)
-        fwhm_max = 30. * (1. / 60.) * (1. / 24.)
-        fwhm_grid = np.linspace(fwhm_min, fwhm_max, 51)
-
-        fwhm_slots = []
-        # Iterate over a sequence of numbers
-        for slot_num in range(len(fwhm_grid) - 1):
-            # In each iteration, add an empty list to the main list
-            fwhm_slots.append([])
-
-        for grid_index in range(1, len(fwhm_grid)):
-            for true_index in range(0, len(fwhm_true)):
-                if (fwhm_true[true_index] > fwhm_grid[grid_index - 1]) and (fwhm_true[true_index] <= fwhm_grid[grid_index]):
-                    fwhm_slots[grid_index - 1].append(true_index)
-
-        font_size = 'small'
-        font_style = 'normal'
-        font_family = 'sans-serif'
-        # definitions for the axes
-        left, width = 0.1, 0.65
-        bottom, height = 0.1, 0.65
-        spacing = 0.005
-        rect_main = [left, bottom, width, height]
-        rect_hist_top = [left, bottom + height + spacing, width, 0.2]
-        rect_hist_side = [left + width + spacing, bottom, 0.2, height]
-
-
-        fig = plt.figure(figsize=(10, 5), facecolor='#000000') #, dpi=300)
-        grid = plt.GridSpec(8, 12, hspace=0.2, wspace=0.2)
-        for prop in range(len(opt_list)):
-
-            ax = fig.add_subplot(grid[0:-2, 0:-2])
-            ax_y_hist = fig.add_subplot(grid[0, -1], xticklabels=[], sharey=ax)
-            ax_x_hist = fig.add_subplot(grid[-1, -1], yticklabels=[], sharex=ax)
-
-            y_hist, bin_edges = np.histogram(opt_list[prop], bins='fd')
-            Z = np.zeros((len(fwhm_grid) - 1, len(bin_edges) - 1))
-
-            for slot_index in range(len(fwhm_slots)):
-                y_hist, bin_edges = np.histogram(np.array(opt_list[prop])[fwhm_slots[slot_index]], bins=bin_edges)
-                Z[slot_index, :] = y_hist
-
-            #ax = fig.add_subplot(2,3,prop+1)
-            # ax_test.set_title('fit = %0.4f+/-%4f * x + %0.4f+/-%4f' % (slope, slope_err, yint, yint_err))
-            # ax.set_title('Original', fontsize=font_size, style=font_style, family=font_family)
-            if (prop == 0) or (prop == 3):
-                ax.set_ylabel('FWHM (min)', fontsize=font_size, style=font_style, family=font_family)
-            ax.set_xlabel(x_label_list[prop], fontsize=font_size, style=font_style, family=font_family)
-            ax.set_ylim([np.min(fwhm_grid[0:-1]*24*60), np.max(fwhm_grid[0:-1]*24*60)])
-            bin_width = np.diff(bin_edges)[0]
-            xlim_mult = 20.
-            if prop == 5:
-                ax.set_xlim(0, np.max(bin_edges))
-            else:
-                #ax.set_xlim(np.min(bin_edges), np.max(bin_edges))
-                ax.set_xlim(-xlim_mult * bin_width, xlim_mult * bin_width)
-            # mx = max(Yin)
-            # ax.set_xticks((2,4,6,8,10,12,14,16,18,20,22,24,26,28,30))
-            X, Y = np.meshgrid(bin_edges[0:-1] + 0.5 * np.diff(bin_edges), fwhm_grid[0:-1] * 24 * 60)
-            p = ax.pcolor(X, Y, Z, cmap=cm.bone, edgecolors='face', vmin=Z.min(), vmax=Z.max())
-            # cbaxes = fig.add_axes([])
-            cb = fig.colorbar(p)  # , ticks=linspace(0,abs(Z).max(),10))
-            cb.set_label(label='Counts', fontsize=font_size, style=font_style, family=font_family)
-            if prop != 5:
-                ax.plot([0,0],[np.min(fwhm_grid*24*60),np.max(fwhm_grid*24*60)], '--', color='red',lw=1)
-            # cb.ax.set_yticklabels(np.arange(0,Z.max(),0.1),style=font_style, family=font_family)
-            cb.ax.tick_params(labelsize=font_size)  # , style=font_style, family=font_family)
-            ax.tick_params(axis='both', labelsize=font_size, direction='in', top=True, right=True, color='#ffffff')
-
-        plt.tight_layout()
-        plt.savefig('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/' + save_as,dpi=300)
-        plt.close()
-        # plt.show()
-
-        # import pdb; pdb.set_trace()
-def sort_property4(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, flare_energy_opt, t_peak_true, fwhm_true, ampl_true, eq_duration_true, flare_energy_true, impulsiveness, save_as, property_to_sort='fwhm'):
-
-    opt_list = [np.array(t_peak_opt)*24*60, fwhm_opt, ampl_opt, eq_duration_opt, flare_energy_opt, impulsiveness]
-    true_list = [t_peak_true, fwhm_true, ampl_true, eq_duration_true, flare_energy_true]
-    x_label_list = ['Difference From True Peak Time (min)','% Difference from True FWHM',
-                    '% Difference from True Amplitude','% Difference from True Equivalent Duration',
-                    '% Difference from True Flare Energy', 'Impulsive Index']
-
-    if property_to_sort == 'fwhm':
-
-        fwhm_min = 0.5 * (1. / 60.) * (1. / 24.)
-        fwhm_max = 30. * (1. / 60.) * (1. / 24.)
-        fwhm_grid = np.linspace(fwhm_min, fwhm_max, 51)
-
-        fwhm_slots = []
-        # Iterate over a sequence of numbers
-        for slot_num in range(len(fwhm_grid) - 1):
-            # In each iteration, add an empty list to the main list
-            fwhm_slots.append([])
-
-        for grid_index in range(1, len(fwhm_grid)):
-            for true_index in range(0, len(fwhm_true)):
-                if (fwhm_true[true_index] > fwhm_grid[grid_index - 1]) and (fwhm_true[true_index] <= fwhm_grid[grid_index]):
-                    fwhm_slots[grid_index - 1].append(true_index)
-
-        font_size = 'small'
-        font_style = 'normal'
-        font_family = 'sans-serif'
-
-        fig = plt.figure(figsize=(10, 6), facecolor='#ffffff')
-        for prop in range(len(opt_list)):
-
-            if prop <= 2:
-                plot_bott = 0.57
-                plot_top = 0.98
-                plot_left = 0.05 + 0.27 * prop + 0.05 * prop
-                plot_right = 0.05 + 0.27 * (prop + 1) + 0.05 * prop
-            if prop > 2:
-                plot_bott = 0.06
-                plot_top = 0.48
-                plot_left = 0.05 + 0.27 * (prop - 3) + 0.05 * (prop - 3)
-                plot_right = 0.05 + 0.27 * ((prop - 3) + 1) + 0.05 * (prop - 3)
-            gs1 = fig.add_gridspec(nrows=6, ncols=6, left=plot_left, right=plot_right, top=plot_top, bottom=plot_bott, wspace=0.05, hspace=0.05)
-            ax1 = fig.add_subplot(gs1[2:6, 0:4])
-            ax2 = fig.add_subplot(gs1[0:2, 0:4], xticklabels=[]) #, sharey=ax1)
-            ax3 = fig.add_subplot(gs1[2:6, 4:6], yticklabels=[]) #, sharex=ax1)
-
-            y_hist, bin_edges = np.histogram(opt_list[prop], bins='fd')
-            Z = np.zeros((len(fwhm_grid) - 1, len(bin_edges) - 1))
-
-            for slot_index in range(len(fwhm_slots)):
-                y_hist, bin_edges = np.histogram(np.array(opt_list[prop])[fwhm_slots[slot_index]], bins=bin_edges)
-                Z[slot_index, :] = y_hist
-
-            row_hist = sum_rows(Z)
-            col_hist = sum_cols(Z)
-
-            #ax = fig.add_subplot(2,3,prop+1)
-            # ax_test.set_title('fit = %0.4f+/-%4f * x + %0.4f+/-%4f' % (slope, slope_err, yint, yint_err))
-            # ax.set_title('Original', fontsize=font_size, style=font_style, family=font_family)
-            if (prop == 0) or (prop == 3):
-                ax1.set_ylabel('FWHM (min)', fontsize=font_size, style=font_style, family=font_family)
-            ax1.set_xlabel(x_label_list[prop], fontsize=font_size, style=font_style, family=font_family)
-            ax1.set_ylim([np.min(fwhm_grid[0:-1]*24*60), np.max(fwhm_grid[0:-1]*24*60)])
-            bin_width = np.diff(bin_edges)[0]
-            xlim_mult = 14.
-            if (prop == 0) or (prop == 1):
-                ax1.set_xlim(-xlim_mult * bin_width, xlim_mult * bin_width)
-                ax2.set_xlim(-xlim_mult * bin_width, xlim_mult * bin_width)
-            if (prop == 2) or (prop == 3) or (prop == 4):
-                ax1.set_xlim(-(100. + bin_width), xlim_mult * bin_width)
-                ax2.set_xlim(-(100. + bin_width), xlim_mult * bin_width)
-            if prop == 5:
-                ax1.set_xlim(0, 0.66*np.max(bin_edges))
-                ax2.set_xlim(0, 0.66*np.max(bin_edges))
-
-            # mx = max(Yin)
-            # ax.set_xticks((2,4,6,8,10,12,14,16,18,20,22,24,26,28,30))
-            #X, Y = np.meshgrid(bin_edges[0:-1] + 0.5 * np.diff(bin_edges), fwhm_grid[0:-1] * 24 * 60)
-            X, Y = np.meshgrid(bin_edges[0:-1], fwhm_grid[0:-1] * 24 * 60)
-            p = ax1.pcolor(X, Y, Z, cmap=cm.BuPu, edgecolors='face', vmin=Z.min(), vmax=Z.max())
-            # cbaxes = fig.add_axes([])
-            cb = fig.colorbar(p)  # , ticks=linspace(0,abs(Z).max(),10))
-            # if (prop == 2) or (prop == 5):
-            #     cb.set_label(label='Counts', fontsize=font_size, style=font_style, family=font_family)
-            cb.ax.tick_params(labelsize=font_size)  # , style=font_style, family=font_family)
-            # cb.ax.set_yticklabels(np.arange(0,Z.max(),0.1),style=font_style, family=font_family)
-
-            ax2.bar(bin_edges[:-1], col_hist, width=np.diff(bin_edges), color='None', edgecolor="black", align="edge")
-            ax3.barh(fwhm_grid[:-1], row_hist, height=np.diff(fwhm_grid), color='None', edgecolor="black", align="edge")
-            ax3.set_ylim([np.min(fwhm_grid), np.max(fwhm_grid)])
-            ax3.set_xlim([0, np.max(row_hist) * 1.10])
-
-            if prop != 5:
-                ax1.plot([0,0],[np.min(fwhm_grid*24*60),np.max(fwhm_grid*24*60)],  color='#ff0066',lw=1)
-                ax2.plot([0,0], [np.min(col_hist), np.max(col_hist)], color='#ff0066', lw=1)
-
-            ax1.tick_params(axis='both', labelsize=font_size, direction='in', top=True, right=True, color='#000000', length=0)
-            ax2.tick_params(axis='both', labelsize=font_size, direction='in', top=True, right=True, color='#000000', length=0)
-            ax3.tick_params(axis='both', labelsize=font_size, direction='in', top=True, right=True, color='#000000', length=0)
-
-        plt.tight_layout()
-        plt.savefig('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/' + save_as,dpi=300, rasterized=True)
-        plt.close()
-        # plt.show()
-
-        # import pdb; pdb.set_trace()
-def sort_property5(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, flare_energy_opt, t_peak_true, fwhm_true, ampl_true, eq_duration_true, flare_energy_true, impulsiveness, downsample, save_as, stddev, property_to_sort='fwhm'):
-
-    opt_list = [np.array(t_peak_opt)*24*60, fwhm_opt, ampl_opt, eq_duration_opt, flare_energy_opt, impulsiveness]
-    true_list = [t_peak_true, fwhm_true, ampl_true, eq_duration_true, flare_energy_true]
-    x_label_list = ['Difference From True Peak Time (min)','% Difference from True FWHM',
-                    '% Difference from True Amplitude','% Difference from True Equivalent Duration',
-                    '% Difference from True Flare Energy', 'Impulsive Index']
-
-    if property_to_sort == 'fwhm':
-
-        print('Plotting FWHM sort...')
-
-        fwhm_min = 0.5 * (1. / 60.) * (1. / 24.)
-        fwhm_max = 30. * (1. / 60.) * (1. / 24.)
-        fwhm_grid = np.linspace(fwhm_min, fwhm_max, 51)
-
-        fwhm_slots = []
-        # Iterate over a sequence of numbers
-        for slot_num in range(len(fwhm_grid) - 1):
-            # In each iteration, add an empty list to the main list
-            fwhm_slots.append([])
-
-        for grid_index in range(1, len(fwhm_grid)):
-            for true_index in range(0, len(fwhm_true)):
-                if (fwhm_true[true_index] > fwhm_grid[grid_index - 1]) and (fwhm_true[true_index] <= fwhm_grid[grid_index]):
-                    fwhm_slots[grid_index - 1].append(true_index)
-
-        font_size = 'small'
-        font_style = 'normal'
-        font_family = 'sans-serif'
-        impulse_max_lim_factor = 0.50
-
-        fig = plt.figure(figsize=(10, 6), facecolor='#ffffff') #, dpi=300)
-        for prop in range(len(opt_list)):
-            #print(prop)
-
-            if prop <= 2:
-                plot_bott = 0.57
-                plot_top = 0.98
-                plot_left = 0.05 + 0.27 * prop + 0.05 * prop
-                plot_right = 0.05 + 0.27 * (prop + 1) + 0.05 * prop
-            if prop > 2:
-                plot_bott = 0.06
-                plot_top = 0.48
-                plot_left = 0.05 + 0.27 * (prop - 3) + 0.05 * (prop - 3)
-                plot_right = 0.05 + 0.27 * ((prop - 3) + 1) + 0.05 * (prop - 3)
-            gs1 = fig.add_gridspec(nrows=6, ncols=6, left=plot_left, right=plot_right, top=plot_top, bottom=plot_bott, wspace=0, hspace=0)
-            ax1 = fig.add_subplot(gs1[2:6, 0:4])
-            ax2 = fig.add_subplot(gs1[0:2, 0:4], xticklabels=[]) #, sharey=ax1)
-            ax3 = fig.add_subplot(gs1[2:6, 4:6], yticklabels=[]) #, sharex=ax1)
-
-            y_hist, bin_edges = np.histogram(opt_list[prop], bins='auto')
-            if prop != 5:
-                bin_width = np.diff(bin_edges)[0]
-                xlim_mult = 14.
-                where_within = np.where((bin_edges >= -xlim_mult * bin_width) & (bin_edges <= xlim_mult * bin_width))[0]
-                y_hist, bin_edges = np.histogram(opt_list[prop], bins=bin_edges[where_within])
-            if prop == 5:
-                where_within = np.where(bin_edges <= impulse_max_lim_factor*np.max(bin_edges))[0]
-                y_hist, bin_edges = np.histogram(opt_list[prop], bins=bin_edges[where_within])
-            Z = np.zeros((len(fwhm_grid) - 1, len(bin_edges) - 1))
-
-            for slot_index in range(len(fwhm_slots)):
-                y_hist, bin_edges = np.histogram(np.array(opt_list[prop])[fwhm_slots[slot_index]], bins=bin_edges)
-                Z[slot_index, :] = y_hist
-
-            row_hist = sum_rows(Z)
-            col_hist = sum_cols(Z)
-
-            print(len(bin_edges))
-            #import pdb; pdb.set_trace()
-
-            #ax = fig.add_subplot(2,3,prop+1)
-            # ax_test.set_title('fit = %0.4f+/-%4f * x + %0.4f+/-%4f' % (slope, slope_err, yint, yint_err))
-            # ax.set_title('Original', fontsize=font_size, style=font_style, family=font_family)
-            if (prop == 0) or (prop == 3):
-                ax1.set_ylabel('FWHM (min)', fontsize=font_size, style=font_style, family=font_family)
-            ax1.set_xlabel(x_label_list[prop], fontsize=font_size, style=font_style, family=font_family)
-
-            X, Y = np.meshgrid(bin_edges[0:-1], (fwhm_grid[0:-1] * 24 * 60))
-            p = ax1.pcolor(X, Y, Z, cmap=cm.BuPu, edgecolors='face', vmin=Z.min(), vmax=Z.max(),rasterized=True)
-            #import pdb; pdb.set_trace()
-            # cbaxes = fig.add_axes([])
-            cb = fig.colorbar(p)  # , ticks=linspace(0,abs(Z).max(),10))
-            # if (prop == 2) or (prop == 5):
-            #     cb.set_label(label='Counts', fontsize=font_size, style=font_style, family=font_family)
-            cb.ax.tick_params(labelsize=font_size)  # , style=font_style, family=font_family)
-            # cb.ax.set_yticklabels(np.arange(0,Z.max(),0.1),style=font_style, family=font_family)
-
-            ax2.bar(bin_edges[:-1], col_hist, width=np.diff(bin_edges), color='None', edgecolor="black", align="edge",rasterized=True)
-            ax3.barh(fwhm_grid[:-1], row_hist, height=np.diff(fwhm_grid), color='None', edgecolor="black", align="edge",rasterized=True)
-
-            if prop != 5:
-                ax1.plot([0,0],[np.min(fwhm_grid*24*60),np.max(fwhm_grid*24*60)],  color='#ff0066',lw=1)
-                ax2.plot([0,0], [0, np.max(col_hist)*1.10], color='#ff0066', lw=1)
-
-            ax3.set_ylim([np.min(fwhm_grid), np.max(fwhm_grid)])
-            ax3.set_xlim([0, np.max(row_hist) * 1.10])
-            ax1.set_ylim([np.min(fwhm_grid[0:-1] * 24 * 60), np.max(fwhm_grid[0:-1] * 24 * 60)])
-
-            if (prop == 0) or (prop == 1):
-                ax1.set_xlim(np.min(bin_edges), np.max(bin_edges))
-                ax2.set_xlim(np.min(bin_edges), np.max(bin_edges))
-            if (prop == 2) or (prop == 3) or (prop == 4):
-                ax1.set_xlim(np.min(bin_edges), np.max(bin_edges))
-                ax2.set_xlim(np.min(bin_edges), np.max(bin_edges))
-            if prop == 5:
-                ax1.set_xlim(0, impulse_max_lim_factor * np.max(bin_edges))
-                ax2.set_xlim(0, impulse_max_lim_factor * np.max(bin_edges))
-
-            ax1.tick_params(axis='both', labelsize=font_size, direction='in', top=True, right=True, color='#000000', length=0)
-            ax2.tick_params(axis='both', labelsize=font_size, direction='in', top=True, right=True, color='#000000', length=0)
-            ax3.tick_params(axis='both', labelsize=font_size, direction='in', top=True, right=True, color='#000000', length=0)
-
-        print('Attempting To Save...')
-        #plt.tight_layout()
-        plt.savefig('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/' + save_as,dpi=300,rasterized=True)
-        plt.close()
-        # plt.show()
-
-        # import pdb; pdb.set_trace()
-
-    if property_to_sort == 'amplitude':
-
-        print('Plotting Amplitude sort...')
-
-        ampl_min = 3 * stddev
-        ampl_max = 1000 * stddev
-        ampl_grid = np.linspace(ampl_min, ampl_max, 51)
-
-        ampl_slots = []
-        # Iterate over a sequence of numbers
-        for slot_num in range(len(ampl_grid) - 1):
-            # In each iteration, add an empty list to the main list
-            ampl_slots.append([])
-
-        for grid_index in range(1, len(ampl_grid)):
-            for true_index in range(0, len(ampl_true)):
-                if (ampl_true[true_index] > ampl_grid[grid_index - 1]) and (ampl_true[true_index] <= ampl_grid[grid_index]):
-                    ampl_slots[grid_index - 1].append(true_index)
-
-        font_size = 'small'
-        font_style = 'normal'
-        font_family = 'sans-serif'
-        impulse_max_lim_factor = 0.50
-
-        fig = plt.figure(figsize=(10, 6), facecolor='#ffffff', dpi=300)
-        for prop in range(len(opt_list)):
-            #print(prop)
-
-            if prop <= 2:
-                plot_bott = 0.57
-                plot_top = 0.98
-                plot_left = 0.05 + 0.27 * prop + 0.05 * prop
-                plot_right = 0.05 + 0.27 * (prop + 1) + 0.05 * prop
-            if prop > 2:
-                plot_bott = 0.06
-                plot_top = 0.48
-                plot_left = 0.05 + 0.27 * (prop - 3) + 0.05 * (prop - 3)
-                plot_right = 0.05 + 0.27 * ((prop - 3) + 1) + 0.05 * (prop - 3)
-            gs1 = fig.add_gridspec(nrows=6, ncols=6, left=plot_left, right=plot_right, top=plot_top, bottom=plot_bott, wspace=0, hspace=0)
-            ax1 = fig.add_subplot(gs1[2:6, 0:4])
-            ax2 = fig.add_subplot(gs1[0:2, 0:4], xticklabels=[]) #, sharey=ax1)
-            ax3 = fig.add_subplot(gs1[2:6, 4:6], yticklabels=[]) #, sharex=ax1)
-
-            y_hist, bin_edges = np.histogram(opt_list[prop], bins='auto')
-            if prop != 5:
-                bin_width = np.diff(bin_edges)[0]
-                xlim_mult = 20.
-                where_within = np.where((bin_edges >= -xlim_mult * bin_width) & (bin_edges <= xlim_mult * bin_width))[0]
-                y_hist, bin_edges = np.histogram(opt_list[prop], bins=bin_edges[where_within])
-            if prop == 5:
-                where_within = np.where(bin_edges <= impulse_max_lim_factor*np.max(bin_edges))[0]
-                y_hist, bin_edges = np.histogram(opt_list[prop], bins=bin_edges[where_within])
-            Z = np.zeros((len(ampl_grid) - 1, len(bin_edges) - 1))
-
-            for slot_index in range(len(ampl_slots)):
-                y_hist, bin_edges = np.histogram(np.array(opt_list[prop])[ampl_slots[slot_index]], bins=bin_edges)
-                Z[slot_index, :] = y_hist
-
-            #import pdb; pdb.set_trace()
-
-            row_hist = sum_rows(Z)
-            col_hist = sum_cols(Z)
-
-            print(len(bin_edges))
-
-            #ax = fig.add_subplot(2,3,prop+1)
-            # ax_test.set_title('fit = %0.4f+/-%4f * x + %0.4f+/-%4f' % (slope, slope_err, yint, yint_err))
-            # ax.set_title('Original', fontsize=font_size, style=font_style, family=font_family)
-            if (prop == 0) or (prop == 3):
-                ax1.set_ylabel(r'Amplitude (F$_{flare}$/F$_{quiescent}$)', fontsize=font_size, style=font_style, family=font_family)
-            ax1.set_xlabel(x_label_list[prop], fontsize=font_size, style=font_style, family=font_family)
-
-            X, Y = np.meshgrid(bin_edges[0:-1], ampl_grid[0:-1])
-            p = ax1.pcolor(X, Y, Z, cmap=cm.BuPu, edgecolors='face', vmin=Z.min(), vmax=Z.max(),rasterized=True)
-            # cbaxes = fig.add_axes([])
-            cb = fig.colorbar(p)  # , ticks=linspace(0,abs(Z).max(),10))
-            # if (prop == 2) or (prop == 5):
-            #     cb.set_label(label='Counts', fontsize=font_size, style=font_style, family=font_family)
-            cb.ax.tick_params(labelsize=font_size)  # , style=font_style, family=font_family)
-            # cb.ax.set_yticklabels(np.arange(0,Z.max(),0.1),style=font_style, family=font_family)
-
-            ax2.bar(bin_edges[:-1], col_hist, width=np.diff(bin_edges), color='None', edgecolor="black", align="edge",rasterized=True)
-            ax3.barh(ampl_grid[:-1], row_hist, height=np.diff(ampl_grid), color='None', edgecolor="black", align="edge",rasterized=True)
-
-            if prop != 5:
-                ax1.plot([0,0],[np.min(ampl_grid),np.max(ampl_grid)],  color='#ff0066',lw=1)
-                ax2.plot([0,0], [0, np.max(col_hist)*1.10], color='#ff0066', lw=1)
-
-            ax3.set_ylim([np.min(ampl_grid), np.max(ampl_grid)])
-            ax3.set_xlim([0, np.max(row_hist) * 1.10])
-            ax1.set_ylim([np.min(ampl_grid[0:-1]), np.max(ampl_grid[0:-1])])
-
-            if (prop == 0) or (prop == 1):
-                ax1.set_xlim(np.min(bin_edges), np.max(bin_edges))
-                ax2.set_xlim(np.min(bin_edges), np.max(bin_edges))
-            if (prop == 2) or (prop == 3) or (prop == 4):
-                ax1.set_xlim(np.min(bin_edges), np.max(bin_edges))
-                ax2.set_xlim(np.min(bin_edges), np.max(bin_edges))
-            if prop == 5:
-                ax1.set_xlim(0, impulse_max_lim_factor * np.max(bin_edges))
-                ax2.set_xlim(0, impulse_max_lim_factor * np.max(bin_edges))
-
-            ax1.tick_params(axis='both', labelsize=font_size, direction='in', top=True, right=True, color='#000000', length=0)
-            ax2.tick_params(axis='both', labelsize=font_size, direction='in', top=True, right=True, color='#000000', length=0)
-            ax3.tick_params(axis='both', labelsize=font_size, direction='in', top=True, right=True, color='#000000', length=0)
-
-        print('Attempting To Save...')
-        #plt.tight_layout()
-        plt.savefig('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/' + save_as, dpi=300, rasterized=True)
-        plt.close()
-        # plt.show()
-
-        # import pdb; pdb.set_trace()
-def sort_property6(t_peak_opt, fwhm_opt, ampl_opt, eq_duration_opt, flare_energy_opt, t_peak_true, fwhm_true, ampl_true, eq_duration_true, flare_energy_true, impulsiveness, plot_type, save_as, stddev, set_cadence, property_to_sort='fwhm'):
-    opt_list = [np.array(t_peak_opt) * 24 * 60, fwhm_opt, ampl_opt, eq_duration_opt, flare_energy_opt, impulsiveness]
-    true_list = [t_peak_true, fwhm_true, ampl_true, eq_duration_true, flare_energy_true]
-    x_label_list = ['Difference From True Peak Time (min)', '% Difference from True FWHM',
-                    '% Difference from True Amplitude', '% Difference from True Equivalent Duration',
-                    '% Difference from True Flare Energy', 'Impulsive Index']
-
-    bin_slice_factor = 3.
-
-    if property_to_sort == 'fwhm':
-
-        print('Plotting FWHM sort...')
-
-        fwhm_min = 0.5 * (1. / 60.) * (1. / 24.)
-        fwhm_max = set_cadence * (1. / 60.) * (1. / 24.)
-        fwhm_grid = np.linspace(fwhm_min, fwhm_max, 61)
-
-        fwhm_slots = []
-        # Iterate over a sequence of numbers
-        for slot_num in range(len(fwhm_grid) - 1):
-            # In each iteration, add an empty list to the main list
-            fwhm_slots.append([])
-
-        for grid_index in range(1, len(fwhm_grid)):
-            for true_index in range(0, len(fwhm_true)):
-                if (fwhm_true[true_index] > fwhm_grid[grid_index - 1]) and (
-                        fwhm_true[true_index] <= fwhm_grid[grid_index]):
-                    fwhm_slots[grid_index - 1].append(true_index)
-
-        font_size = 'small'
-        font_style = 'normal'
-        font_family = 'sans-serif'
-        impulse_max_lim_factor = 0.50
-        xlim_mult = 20.
-
-        fig = plt.figure(figsize=(10, 6), facecolor='#ffffff')  # , dpi=300)
-        for prop in range(len(opt_list)):
-            # print(prop)
-
-            if prop <= 2:
-                plot_bott = 0.57
-                plot_top = 0.98
-                plot_left = 0.05 + 0.27 * prop + 0.05 * prop
-                plot_right = 0.05 + 0.27 * (prop + 1) + 0.05 * prop
-            if prop > 2:
-                plot_bott = 0.06
-                plot_top = 0.48
-                plot_left = 0.05 + 0.27 * (prop - 3) + 0.05 * (prop - 3)
-                plot_right = 0.05 + 0.27 * ((prop - 3) + 1) + 0.05 * (prop - 3)
-            gs1 = fig.add_gridspec(nrows=6, ncols=6, left=plot_left, right=plot_right, top=plot_top, bottom=plot_bott,
-                                   wspace=0, hspace=0)
-            ax1 = fig.add_subplot(gs1[2:6, 0:4])
-            ax2 = fig.add_subplot(gs1[0:2, 0:4], xticklabels=[])  # , sharey=ax1)
-            ax3 = fig.add_subplot(gs1[2:6, 4:6], yticklabels=[])  # , sharex=ax1)
-
-            y_hist, bin_edges = np.histogram(opt_list[prop], bins='auto')
-            # bin_edges = np.arange(np.min(bin_edges), np.max(bin_edges)+0.5*np.diff(bin_edges)[0], 0.5*np.diff(bin_edges)[0])
-            axis_spacing = np.arange(0,len(bin_edges),1)
-            if bin_slice_factor == 3:
-                new_axis_spacing = np.arange(np.min(axis_spacing),np.max(axis_spacing)+1./bin_slice_factor,1./bin_slice_factor)[0:-1]
-            else:
-                new_axis_spacing = np.arange(np.min(axis_spacing),np.max(axis_spacing)+1./bin_slice_factor,1./bin_slice_factor)
-            bin_edges = np.interp(new_axis_spacing,axis_spacing,bin_edges)
-            #bin_edges = np.interp(np.arange())
-
-            #import pdb; pdb.set_trace()
-
-            Z = np.zeros((len(fwhm_grid) - 1, len(bin_edges) - 1))
-            for slot_index in range(len(fwhm_slots)):
-                y_hist, bin_edges = np.histogram(np.array(opt_list[prop])[fwhm_slots[slot_index]], bins=bin_edges)
-                Z[slot_index, :] = y_hist
-
-            row_hist = sum_rows(Z)
-            col_hist1 = sum_cols(Z)
-            cum_hist1 = cum_cols(Z)
-
-            if prop != 5:
-                bin_width = np.diff(bin_edges)[0]
-                where_within = np.where((bin_edges >= -xlim_mult * bin_width) & (bin_edges <= xlim_mult * bin_width))[0]
-                y_hist, bin_edges = np.histogram(opt_list[prop], bins=bin_edges[where_within])
-            if prop == 5:
-                where_within = np.where(bin_edges <= impulse_max_lim_factor * np.max(bin_edges))[0]
-                y_hist, bin_edges = np.histogram(opt_list[prop], bins=bin_edges[where_within])
-
-            col_hist = np.array(col_hist1)[where_within[:-1]]
-            cum_hist = np.array(cum_hist1)[where_within[:-1]]
-
-            Z = np.zeros((len(fwhm_grid) - 1, len(bin_edges) - 1))
-            for slot_index in range(len(fwhm_slots)):
-                y_hist, bin_edges = np.histogram(np.array(opt_list[prop])[fwhm_slots[slot_index]], bins=bin_edges)
-                Z[slot_index, :] = y_hist
-
-            print(len(y_hist))
-            # import pdb; pdb.set_trace()
-
-            # ax = fig.add_subplot(2,3,prop+1)
-            # ax_test.set_title('fit = %0.4f+/-%4f * x + %0.4f+/-%4f' % (slope, slope_err, yint, yint_err))
-            # ax.set_title('Original', fontsize=font_size, style=font_style, family=font_family)
-            if (prop == 0) or (prop == 3):
-                ax1.set_ylabel('True FWHM (min)', fontsize=font_size, style=font_style, family=font_family)
-            ax1.set_xlabel(x_label_list[prop], fontsize=font_size, style=font_style, family=font_family)
-
-            X, Y = np.meshgrid(bin_edges[0:-1], (fwhm_grid[0:-1] * 24 * 60))
-            p = ax1.pcolor(X, Y, Z, cmap=cm.BuPu, edgecolors='face', vmin=Z.min(), vmax=Z.max(), rasterized=True)
-            # import pdb; pdb.set_trace()
-            # cbaxes = fig.add_axes([])
-            cb = fig.colorbar(p)  # , ticks=linspace(0,abs(Z).max(),10))
-            # if (prop == 2) or (prop == 5):
-            #     cb.set_label(label='Counts', fontsize=font_size, style=font_style, family=font_family)
-            cb.ax.tick_params(labelsize=font_size)  # , style=font_style, family=font_family)
-            # cb.ax.set_yticklabels(np.arange(0,Z.max(),0.1),style=font_style, family=font_family)
-
-            if plot_type == 'cumulative':
-                ax2.bar(np.array(bin_edges[:-1]), cum_hist, width=np.diff(bin_edges), color='None', edgecolor="black", align="edge", rasterized=True)
-            if plot_type == 'sum':
-                #import pdb; pdb.set_trace()
-                ax2.bar(np.array(bin_edges[:-1]), col_hist, width=np.diff(bin_edges), color='None', edgecolor="black", align="edge", rasterized=True)
-            ax3.barh(fwhm_grid[:-1], row_hist, height=np.diff(fwhm_grid), color='None', edgecolor="black", align="edge", rasterized=True)
-
-            if prop != 5:
-                ax1.plot([0, 0], [np.min(fwhm_grid * 24 * 60), np.max(fwhm_grid * 24 * 60)], color='#ff0066', lw=1)
-                if plot_type == 'cumulative':
-                    ax2.plot([0, 0], [0, 1.0], color='#ff0066', lw=1)
-                    ax2.set_ylim([0, 1.0])
-                if plot_type == 'sum':
-                    ax2.plot([0, 0], [0, np.max(col_hist) * 1.10], color='#ff0066', lw=1)
-                    ax2.set_ylim([0, np.max(col_hist) * 1.10])
-
-            ax3.set_ylim([np.min(fwhm_grid), np.max(fwhm_grid)])
-            ax3.set_xlim([0, np.max(row_hist) * 1.10])
-            ax1.set_ylim([np.min(fwhm_grid[0:-1] * 24 * 60), np.max(fwhm_grid[0:-1] * 24 * 60)])
-
-            if (prop == 0) or (prop == 1):
-                ax1.set_xlim(np.min(bin_edges), np.max(bin_edges))
-                ax2.set_xlim(np.min(bin_edges), np.max(bin_edges))
-            if (prop == 2) or (prop == 3) or (prop == 4):
-                ax1.set_xlim(np.min(bin_edges), np.max(bin_edges))
-                ax2.set_xlim(np.min(bin_edges), np.max(bin_edges))
-            if prop == 5:
-                ax1.set_xlim(0, impulse_max_lim_factor * np.max(bin_edges))
-                ax2.set_xlim(0, impulse_max_lim_factor * np.max(bin_edges))
-
-            ax1.tick_params(axis='both', labelsize=font_size, direction='in', top=True, right=True, color='#000000',
-                            length=0)
-            ax2.tick_params(axis='both', labelsize=font_size, direction='in', top=True, right=True, color='#000000',
-                            length=0)
-            ax3.tick_params(axis='both', labelsize=font_size, direction='in', top=True, right=True, color='#000000',
-                            length=0)
-
-        print('Attempting To Save...')
-        # plt.tight_layout()
-        plt.savefig('/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/' + save_as,dpi=300, rasterized=True)
-        plt.close()
-        # plt.show()
-
-        # import pdb; pdb.set_trace()
-
-    if property_to_sort == 'amplitude':
-
-        print('Plotting Amplitude sort...')
-
-        ampl_min = 3 * stddev
-        ampl_max = 1000 * stddev
-        ampl_grid = np.linspace(ampl_min, ampl_max, 51)
-
-        ampl_slots = []
-        # Iterate over a sequence of numbers
-        for slot_num in range(len(ampl_grid) - 1):
-            # In each iteration, add an empty list to the main list
-            ampl_slots.append([])
-
-        for grid_index in range(1, len(ampl_grid)):
-            for true_index in range(0, len(ampl_true)):
-                if (ampl_true[true_index] > ampl_grid[grid_index - 1]) and (
-                        ampl_true[true_index] <= ampl_grid[grid_index]):
-                    ampl_slots[grid_index - 1].append(true_index)
-
-        font_size = 'small'
-        font_style = 'normal'
-        font_family = 'sans-serif'
-        impulse_max_lim_factor = 0.50
-        xlim_mult = 20.
-
-        fig = plt.figure(figsize=(10, 6), facecolor='#ffffff', dpi=300)
-        for prop in range(len(opt_list)):
-            # print(prop)
-
-            if prop <= 2:
-                plot_bott = 0.57
-                plot_top = 0.98
-                plot_left = 0.05 + 0.27 * prop + 0.05 * prop
-                plot_right = 0.05 + 0.27 * (prop + 1) + 0.05 * prop
-            if prop > 2:
-                plot_bott = 0.06
-                plot_top = 0.48
-                plot_left = 0.05 + 0.27 * (prop - 3) + 0.05 * (prop - 3)
-                plot_right = 0.05 + 0.27 * ((prop - 3) + 1) + 0.05 * (prop - 3)
-            gs1 = fig.add_gridspec(nrows=6, ncols=6, left=plot_left, right=plot_right, top=plot_top, bottom=plot_bott,
-                                   wspace=0, hspace=0)
-            ax1 = fig.add_subplot(gs1[2:6, 0:4])
-            ax2 = fig.add_subplot(gs1[0:2, 0:4], xticklabels=[])  # , sharey=ax1)
-            ax3 = fig.add_subplot(gs1[2:6, 4:6], yticklabels=[])  # , sharex=ax1)
-
-            y_hist, bin_edges = np.histogram(opt_list[prop], bins='auto')
-            #bin_edges = np.arange(np.min(bin_edges), np.max(bin_edges) + 0.5 * np.diff(bin_edges)[0], 0.5 * np.diff(bin_edges)[0])
-            axis_spacing = np.arange(0, len(bin_edges), 1)
-            if bin_slice_factor == 3:
-                new_axis_spacing = np.arange(np.min(axis_spacing),np.max(axis_spacing)+1./bin_slice_factor,1./bin_slice_factor)[0:-1]
-            else:
-                new_axis_spacing = np.arange(np.min(axis_spacing),np.max(axis_spacing)+1./bin_slice_factor,1./bin_slice_factor)
-            bin_edges = np.interp(new_axis_spacing, axis_spacing, bin_edges)
-
-            Z = np.zeros((len(ampl_grid) - 1, len(bin_edges) - 1))
-            for slot_index in range(len(ampl_slots)):
-                y_hist, bin_edges = np.histogram(np.array(opt_list[prop])[ampl_slots[slot_index]], bins=bin_edges)
-                Z[slot_index, :] = y_hist
-
-            row_hist = sum_rows(Z)
-            col_hist1 = sum_cols(Z)
-            cum_hist1 = cum_cols(Z)
-
-            if prop != 5:
-                bin_width = np.diff(bin_edges)[0]
-                where_within = np.where((bin_edges >= -xlim_mult * bin_width) & (bin_edges <= xlim_mult * bin_width))[0]
-                y_hist, bin_edges = np.histogram(opt_list[prop], bins=bin_edges[where_within])
-            if prop == 5:
-                where_within = np.where(bin_edges <= impulse_max_lim_factor * np.max(bin_edges))[0]
-                y_hist, bin_edges = np.histogram(opt_list[prop], bins=bin_edges[where_within])
-
-            col_hist = np.array(col_hist1)[where_within[:-1]]
-            cum_hist = np.array(cum_hist1)[where_within[:-1]]
-
-            Z = np.zeros((len(ampl_grid) - 1, len(bin_edges) - 1))
-            for slot_index in range(len(ampl_slots)):
-                y_hist, bin_edges = np.histogram(np.array(opt_list[prop])[ampl_slots[slot_index]], bins=bin_edges)
-                Z[slot_index, :] = y_hist
-
-            print(len(y_hist))
-
-            # ax = fig.add_subplot(2,3,prop+1)
-            # ax_test.set_title('fit = %0.4f+/-%4f * x + %0.4f+/-%4f' % (slope, slope_err, yint, yint_err))
-            # ax.set_title('Original', fontsize=font_size, style=font_style, family=font_family)
-            if (prop == 0) or (prop == 3):
-                ax1.set_ylabel(r'True Amplitude (F$_{flare}$/F$_{quiescent}$ - 1)', fontsize=font_size, style=font_style,
-                               family=font_family)
-            ax1.set_xlabel(x_label_list[prop], fontsize=font_size, style=font_style, family=font_family)
-
-            X, Y = np.meshgrid(bin_edges[0:-1], ampl_grid[0:-1])
-            p = ax1.pcolor(X, Y, Z, cmap=cm.BuPu, edgecolors='face', vmin=Z.min(), vmax=Z.max(), rasterized=True)
-            # cbaxes = fig.add_axes([])
-            cb = fig.colorbar(p)  # , ticks=linspace(0,abs(Z).max(),10))
-            # if (prop == 2) or (prop == 5):
-            #     cb.set_label(label='Counts', fontsize=font_size, style=font_style, family=font_family)
-            cb.ax.tick_params(labelsize=font_size)  # , style=font_style, family=font_family)
-            # cb.ax.set_yticklabels(np.arange(0,Z.max(),0.1),style=font_style, family=font_family)
-
-            if plot_type == 'cumulative':
-                ax2.bar(np.array(bin_edges[:-1]), cum_hist, width=np.diff(bin_edges), color='None', edgecolor="black", align="edge", rasterized=True)
-            if plot_type == 'sum':
-                #import pdb; pdb.set_trace()
-                ax2.bar(np.array(bin_edges[:-1]), col_hist, width=np.diff(bin_edges), color='None', edgecolor="black", align="edge", rasterized=True)
-            ax3.barh(ampl_grid[:-1], row_hist, height=np.diff(ampl_grid), color='None', edgecolor="black", align="edge", rasterized=True)
-
-            if prop != 5:
-                ax1.plot([0, 0], [np.min(ampl_grid), np.max(ampl_grid)], color='#ff0066', lw=1)
-                if plot_type == 'cumulative':
-                    ax2.plot([0, 0], [0, 1.0], color='#ff0066', lw=1)
-                    ax2.set_ylim([0, 1.0])
-                if plot_type == 'sum':
-                    ax2.plot([0, 0], [0, np.max(col_hist) * 1.10], color='#ff0066', lw=1)
-                    ax2.set_ylim([0, np.max(col_hist) * 1.10])
-
-            ax3.set_ylim([np.min(ampl_grid), np.max(ampl_grid)])
-            ax3.set_xlim([0, np.max(row_hist) * 1.10])
-            ax1.set_ylim([np.min(ampl_grid[0:-1]), np.max(ampl_grid[0:-1])])
-
-            if (prop == 0) or (prop == 1):
-                ax1.set_xlim(np.min(bin_edges), np.max(bin_edges))
-                ax2.set_xlim(np.min(bin_edges), np.max(bin_edges))
-            if (prop == 2) or (prop == 3) or (prop == 4):
-                ax1.set_xlim(np.min(bin_edges), np.max(bin_edges))
-                ax2.set_xlim(np.min(bin_edges), np.max(bin_edges))
-            if prop == 5:
-                ax1.set_xlim(0, impulse_max_lim_factor * np.max(bin_edges))
-                ax2.set_xlim(0, impulse_max_lim_factor * np.max(bin_edges))
-
-            ax1.tick_params(axis='both', labelsize=font_size, direction='in', top=True, right=True, color='#000000',
-                            length=0)
-            ax2.tick_params(axis='both', labelsize=font_size, direction='in', top=True, right=True, color='#000000',
-                            length=0)
-            ax3.tick_params(axis='both', labelsize=font_size, direction='in', top=True, right=True, color='#000000',
-                            length=0)
-
-        print('Attempting To Save...')
-        # plt.tight_layout()
-        plt.savefig(
-            '/Users/lbiddle/PycharmProjects/Flares/TESS/Flares/K2_Project/K2_Figures/test_flare_fits/' + save_as,
-            dpi=300, rasterized=True)
-        plt.close()
-        # plt.show()
-
-        # import pdb; pdb.set_trace()
-
-
-fit_statistics4(cadence, stddev, set_fixed_amplitude=False, downsample=True, set_cadence=50, n_reps=100)
+lc_cadence = [2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10,10.5,11,11.5,12,12.5,12.75,13,13.25,13.5,13.75,14,14.5,15,15.5,16,16.5,17,17.5,18,18.5,19,19.5,20] #[10,10.5,11,11.5,12,12.25,12.5,12.75,13,13.5,14,14.5,15,15.5,16,16.5,17,17.5,18,18.5,19,19.5,20]
+for this_cad in range(len(lc_cadence)):
+    fit_statistics5(cadence, set_fixed_amplitude=False, downsample=True, set_lc_cadence=lc_cadence[this_cad], set_test_cadence = 1.25*lc_cadence[this_cad], bin_slice_factor=1., n_reps=1000) #25000)
 
 
 
